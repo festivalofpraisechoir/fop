@@ -87,7 +87,7 @@ export default function PublicCheckIn() {
       {error && <p className="notice error-notice" role="alert">{error}</p>}
       {needsFreshQr ? <p className="auth-intro">Waiting for a fresh QR scan…</p> : step === 'email' ? <form className="auth-form" onSubmit={sendCode}><div className="field-group"><label htmlFor="attendee-email">Registered email address</label><input id="attendee-email" type="email" required autoComplete="email" value={email} onChange={e=>setEmail(e.target.value)} /></div><button className="primary-button full-width" disabled={busy || !session || session.status !== 'open'}>{busy ? 'Sending…' : 'Send verification code'}</button></form>
       : <form className="auth-form" onSubmit={verify}><p className="muted">Enter the code sent to {email}.</p><div className="field-group"><label htmlFor="otp-code">Email verification code</label><input id="otp-code" inputMode="numeric" autoComplete="one-time-code" required value={code} onChange={e=>setCode(e.target.value)} /></div><button className="primary-button full-width" disabled={busy}>{busy ? 'Recording…' : 'Confirm attendance'}</button><button className="secondary-button full-width" type="button" onClick={()=>{setStep('email');setCode('');}}>Use a different email</button></form>}
-      <p className="auth-footnote">Can't access your registered email? Ask an attendance administrator to check you in.</p>
+      <p className="auth-footnote">Can&apos;t access your registered email? Ask an attendance administrator to check you in.</p>
     </>}
   </section></main>;
 }
