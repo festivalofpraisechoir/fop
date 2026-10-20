@@ -1,13 +1,13 @@
 'use client';
 
-import { FormEvent, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { FormEvent, useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createSupabaseClient } from '@/lib/supabase';
 
 export default function LoginPage() {
   const router = useRouter();
-  const params = useSearchParams();
+  const [nextPath, setNextPath] = useState('/dashboard');\n  const [setupMissing, setSetupMissing] = useState(false);\n  useEffect(() => { const query = new URLSearchParams(window.location.search); setNextPath(query.get('next') || '/dashboard'); setSetupMissing(query.get('setup') === 'supabase'); }, []);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -28,7 +28,7 @@ export default function LoginPage() {
       setError('We could not sign you in with those details. Check your email and password or contact the Super Admin.');
       return;
     }
-    router.replace(params.get('next') || '/dashboard');
+    router.replace(nextPath);
     router.refresh();
   }
 
@@ -40,7 +40,7 @@ export default function LoginPage() {
           <div><p className="eyebrow">Festival of Praise</p><h1 id="login-title">Attendance portal</h1></div>
         </div>
         <p className="auth-intro">Sign in with your authorised team account to continue.</p>
-        {params.get('setup') === 'supabase' && <p className="notice error-notice">Supabase environment variables are missing. Configure them in Vercel before signing in.</p>}
+        {setupMissing && <p className="notice error-notice">Supabase environment variables are missing. Configure them in Vercel before signing in.</p>}
         {error && <p className="notice error-notice" role="alert">{error}</p>}
         <form className="auth-form" onSubmit={handleSubmit}>
           <div className="field-group"><label htmlFor="email">Email address</label><input id="email" type="email" autoComplete="username" value={email} onChange={e => setEmail(e.target.value)} required /></div>
