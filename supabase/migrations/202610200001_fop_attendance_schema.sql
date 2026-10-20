@@ -6,7 +6,7 @@ returns text
 language sql
 stable
 as $$
-  select coalesce(auth.jwt() -> 'app_metadata' ->> 'role', 'admin');
+  select coalesce(auth.jwt() -> 'app_metadata' ->> 'role', 'none');
 $$;
 
 create table if not exists public.contacts (
