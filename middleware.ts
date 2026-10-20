@@ -49,7 +49,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(destination);
   }
 
-  if (user && path === '/reports' && user.app_metadata?.role !== 'super_admin') {
+  if (user && (path === '/reports' || path.startsWith('/admins')) && user.app_metadata?.role !== 'super_admin') {
     const destination = request.nextUrl.clone();
     destination.pathname = '/attendance';
     destination.search = '';
