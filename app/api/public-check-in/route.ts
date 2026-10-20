@@ -34,3 +34,15 @@ export async function POST(request: NextRequest) {
   }
   return NextResponse.json({ success: true, alreadyRecorded: false, name: contact.full_name, status: 'Present', session: event.title }, { headers: { 'Cache-Control': 'no-store' } });
 }
+
+export async function GET(request: NextRequest) {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const secret = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const eventId = request.nextUrl.searchParams.get('eventId') || '';
+  if (!url || !secret) return NextResponse.json({ error: 'Check-in is unavailable.' }, { status: 503 });
+  if (!/^[0-9a-f-]{36}$/i.test(eventId)) return NextResponse.json({ error: 'Invalid session.' }, { status: 400 });
+  const admin = createClient(url, secret, { auth: { persistSession: false, autoRefreshToken: false } });
+  const { data } = await admin.from('attendance_events').select('id,title,event_date,status').eq('id',eventId).maybeSingle();
+  if (!data) return NextResponse.json({ error: 'Session not found.' }, { status: 404 });
+  return NextResponse.json(data, { headers: { 'Cache-Control': 'no-store' } });
+}
