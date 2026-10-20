@@ -3,8 +3,8 @@
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from 'react';
 import { createSupabaseClient, type ContactRecord } from '@/lib/supabase';
 
-type ContactDraft = { full_name: string; email: string; phone_number: string; singer_or_musician: 'Singer'|'Musician'; part_or_instrument: string; church_name: string; church_letter_submitted: boolean };
-const blank: ContactDraft = { full_name:'', email:'', phone_number:'', singer_or_musician:'Singer', part_or_instrument:'', church_name:'', church_letter_submitted:false };
+type ContactDraft = { full_name: string; email: string; phone_number: string; singer_or_musician: 'Singer'|'Musician'; part_or_instrument: string; church_name: string; church_letter_submitted: boolean; registered_at: string };
+const blank: ContactDraft = { full_name:'', email:'', phone_number:'', singer_or_musician:'Singer', part_or_instrument:'', church_name:'', church_letter_submitted:false, registered_at:'' };
 
 export default function ContactsPage() {
   const [contacts,setContacts] = useState<ContactRecord[]>([]);
@@ -29,11 +29,11 @@ export default function ContactsPage() {
   const filtered=useMemo(()=>contacts.filter(c=>[c.full_name,c.email,c.phone_number,c.church_name,c.part_or_instrument,c.singer_or_musician].some(v=>v?.toLowerCase().includes(search.toLowerCase()))),[contacts,search]);
 
   function startAdd(){setDraft(blank);setEditing(null);setShowForm(true);setMessage('');}
-  function startEdit(c:ContactRecord){setDraft({full_name:c.full_name,email:c.email||'',phone_number:c.phone_number||'',singer_or_musician:c.singer_or_musician,part_or_instrument:c.part_or_instrument||'',church_name:c.church_name||'',church_letter_submitted:c.church_letter_submitted});setEditing(c.id);setShowForm(true);setMessage('');}
+  function startEdit(c:ContactRecord){setDraft({full_name:c.full_name,email:c.email||'',phone_number:c.phone_number||'',singer_or_musician:c.singer_or_musician,part_or_instrument:c.part_or_instrument||'',church_name:c.church_name||'',church_letter_submitted:c.church_letter_submitted, registered_at:c.registered_at||''});setEditing(c.id);setShowForm(true);setMessage('');}
   async function saveContact(e:FormEvent<HTMLFormElement>){
     e.preventDefault();const supabase=createSupabaseClient();if(!supabase)return setMessage('Supabase is not configured.');
     setBusy(true);setMessage('');
-    const payload={...draft,full_name:draft.full_name.trim(),email:draft.email.trim()||null,phone_number:draft.phone_number.trim()||null,part_or_instrument:draft.part_or_instrument.trim()||null,church_name:draft.church_name.trim()||null};
+    const payload={...draft,full_name:draft.full_name.trim(),email:draft.email.trim()||null,phone_number:draft.phone_number.trim()||null,part_or_instrument:draft.part_or_instrument.trim()||null,church_name:draft.church_name.trim()||null,registered_at:draft.registered_at.trim()||null};
     const result=editing?await supabase.from('contacts').update(payload).eq('id',editing):await supabase.from('contacts').insert({...payload,source:'manual'});
     setBusy(false);
     if(result.error){setMessage(result.error.code==='23505'?'A contact with this email or barcode already exists. Check the directory before saving.':result.error.message);return;}
@@ -45,8 +45,8 @@ export default function ContactsPage() {
     if(lines.length<2)return [];
     const headers=parse(lines[0]).map(h=>h.toLowerCase());
     const index=(...terms:string[])=>headers.findIndex(h=>terms.some(t=>h.includes(t)));
-    const nameI=index('name'),emailI=index('email'),phoneI=index('phone'),typeI=index('singer or musician','type','role'),partI=index('part','instrument'),churchI=index('church'),letterI=index('letter');
-    return lines.slice(1).map(line=>{const r=parse(line);const type=r[typeI]?.toLowerCase().includes('musician')?'Musician':'Singer';return {full_name:r[nameI]||'',email:r[emailI]||'',phone_number:r[phoneI]||'',singer_or_musician:type,part_or_instrument:r[partI]||'',church_name:r[churchI]||'',church_letter_submitted:/^(yes|true|submitted)$/i.test(r[letterI]||'')};}).filter(r=>r.full_name);
+    const timestampI=index('timestamp'),nameI=index('name'),emailI=index('email'),phoneI=index('phone'),typeI=index('singer or musician','type','role'),partI=index('what part','voice part','part'),instrumentI=index('instrument'),churchI=index('church'),letterI=index('letter');
+    return lines.slice(1).map(line=>{const r=parse(line);const type=r[typeI]?.toLowerCase().includes('musician')?'Musician':'Singer';return {registered_at:r[timestampI]||'',full_name:r[nameI]||'',email:r[emailI]||'',phone_number:r[phoneI]||'',singer_or_musician:type,part_or_instrument:(type==='Musician'?r[instrumentI]:r[partI])||'',church_name:r[churchI]||'',church_letter_submitted:/^(yes|true|submitted)$/i.test(r[letterI]||'')};}).filter(r=>r.full_name);
   }
   async function handleFile(e:ChangeEvent<HTMLInputElement>){
     const file=e.target.files?.[0];if(!file)return;setCsvName(file.name);setMessage('');
@@ -81,7 +81,7 @@ export default function ContactsPage() {
     </section>}
     {importOpen&&<section className="panel-card"><div className="panel-header"><div><p className="eyebrow">Bulk import</p><h2>Import registered contacts</h2></div><button className="secondary-button" onClick={()=>{setImportOpen(false);setCsvRows(null);}}>Close</button></div><p className="muted">Upload a CSV with column headings such as Name, Email, Phone number, Singer or Musician, Voice part / Instrument, Church and Church letter submitted. Review the detected rows before saving.</p><div className="field-group"><label htmlFor="csv-file">CSV file</label><input id="csv-file" type="file" accept=".csv,text/csv" onChange={handleFile}/></div>{csvRows&&<><p className="notice">{csvName}: {csvRows.length} rows detected. {csvRows.filter(r=>r.full_name).length} rows have a name. Potential duplicates are checked against existing email addresses and phone numbers.</p><div className="table-wrap"><table><thead><tr><th>Name</th><th>Email</th><th>Type</th><th>Part / instrument</th><th>Church</th></tr></thead><tbody>{csvRows.slice(0,8).map((r,i)=><tr key={i}><td>{r.full_name}</td><td>{r.email}</td><td>{r.singer_or_musician}</td><td>{r.part_or_instrument}</td><td>{r.church_name}</td></tr>)}</tbody></table></div>{csvRows.length>8&&<p className="muted">Showing the first 8 rows for review.</p>}<div className="form-actions"><button className="primary-button" disabled={busy||!csvRows.length} onClick={importCsv}>{busy?'Importing…':`Import ${csvRows.length} reviewed rows`}</button></div></>}</section>}
     <section className="panel-card"><div className="toolbar-row"><div><h2>Registered contacts <span className="count-label">{filtered.length}</span></h2><p className="muted">Search the directory to find a member.</p></div><input className="search-input" aria-label="Search contacts" placeholder="Search name, email, phone or church" value={search} onChange={e=>setSearch(e.target.value)}/></div>
-      <div className="table-wrap"><table><thead><tr><th>Name</th><th>Email / phone</th><th>Type</th><th>Voice part / instrument</th><th>Church</th><th>Church letter</th><th></th></tr></thead><tbody>{filtered.map(c=><tr key={c.id}><td><strong>{c.full_name}</strong></td><td><span>{c.email||'—'}</span><small className="table-subtext">{c.phone_number||'—'}</small></td><td>{c.singer_or_musician}</td><td>{c.part_or_instrument||'—'}</td><td>{c.church_name||'—'}</td><td><span className={`status-pill ${c.church_letter_submitted?'success':'neutral'}`}>{c.church_letter_submitted?'Submitted':'Outstanding'}</span></td><td><button className="table-action" onClick={()=>startEdit(c)}>Edit</button></td></tr>)}</tbody></table>{!filtered.length&&<div className="empty-state">{search?'No contacts match your search.':'No contacts have been added yet. Add a contact or import a CSV roster.'}</div>}</div>
+      <div className="table-wrap"><table><thead><tr><th>Name</th><th>Registered</th><th>Email / phone</th><th>Type</th><th>Voice part / instrument</th><th>Church</th><th>Church letter</th><th></th></tr></thead><tbody>{filtered.map(c=><tr key={c.id}><td><strong>{c.full_name}</strong></td><td>{c.registered_at||'—'}</td><td><span>{c.email||'—'}</span><small className="table-subtext">{c.phone_number||'—'}</small></td><td>{c.singer_or_musician}</td><td>{c.part_or_instrument||'—'}</td><td>{c.church_name||'—'}</td><td><span className={`status-pill ${c.church_letter_submitted?'success':'neutral'}`}>{c.church_letter_submitted?'Submitted':'Outstanding'}</span></td><td><button className="table-action" onClick={()=>startEdit(c)}>Edit</button></td></tr>)}</tbody></table>{!filtered.length&&<div className="empty-state">{search?'No contacts match your search.':'No contacts have been added yet. Add a contact or import a CSV roster.'}</div>}</div>
     </section>
   </div>;
 }
