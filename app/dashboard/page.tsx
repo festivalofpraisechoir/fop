@@ -1,73 +1,43 @@
-const summaryCards = [
-  { title: 'Members', value: '482', meta: 'Registered contacts' },
-  { title: 'Present today', value: '316', meta: '+19 vs last week' },
-  { title: 'Late', value: '23', meta: 'Recently checked in' },
-  { title: 'Missing', value: '78', meta: 'Need follow-up' },
-];
+'use client';
 
-const attendanceByRole = [
-  { label: 'Singers', value: 58 },
-  { label: 'Musicians', value: 42 },
-];
+import Link from 'next/link';
+import { useEffect, useState } from 'react';
+import { createSupabaseClient } from '@/lib/supabase';
 
 export default function DashboardPage() {
-  return (
-    <div className="page-shell">
-      <header className="page-header">
-        <div>
-          <p className="eyebrow">Overview</p>
-          <h1>Dashboard</h1>
-        </div>
-      </header>
-
-      <section className="stats-grid">
-        {summaryCards.map((card) => (
-          <article key={card.title} className="stat-card compact">
-            <span>{card.title}</span>
-            <strong>{card.value}</strong>
-            <small>{card.meta}</small>
-          </article>
-        ))}
-      </section>
-
-      <section className="panel-grid two-col">
-        <div className="panel-card">
-          <div className="panel-header">
-            <h2>Attendance mix</h2>
-          </div>
-          <div className="progress-stack">
-            {attendanceByRole.map((item) => (
-              <div key={item.label} className="progress-row">
-                <div className="progress-header">
-                  <span>{item.label}</span>
-                  <span>{item.value}%</span>
-                </div>
-                <div className="progress-bar">
-                  <span style={{ width: `${item.value}%` }} />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="panel-card">
-          <div className="panel-header">
-            <h2>Recent imports</h2>
-            <span className="status-pill neutral">Synced</span>
-          </div>
-          <div className="list-stack">
-            {['Wednesday rehearsal roster.csv', 'Sunday service members.xlsx', 'Keyboard section.pdf'].map((item) => (
-              <div key={item} className="list-row">
-                <div>
-                  <strong>{item}</strong>
-                  <small>Processed 2 hours ago</small>
-                </div>
-                <span className="status-pill success">Ready</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-    </div>
-  );
+  const [stats, setStats] = useState({ contacts: 0, events: 0, present: 0, late: 0 });
+  const [message, setMessage] = useState('');
+  useEffect(() => {
+    let active = true;
+    async function load() {
+      const supabase = createSupabaseClient();
+      if (!supabase) { setMessage('Connect Supabase to load live attendance data.'); return; }
+      const today = new Date().toLocaleDateString('en-CA');
+      const [contacts, events] = await Promise.all([
+        supabase.from('contacts').select('id', { count: 'exact', head: true }),
+        supabase.from('attendance_events').select('id,event_date,title,status').eq('event_date', today).maybeSingle(),
+      ]);
+      if (contacts.error || events.error) { if(active) setMessage('Could not load dashboard data. Apply the database migration and check your Supabase access settings.'); return; }
+      let present = 0, late = 0;
+      if (events.data?.id) {
+        const records = await supabase.from('attendance_records').select('status').eq('event_id', events.data.id);
+        present = records.data?.filter(r => r.status === 'Present').length || 0;
+        late = records.data?.filter(r => r.status === 'Late').length || 0;
+      }
+      if(active) setStats({ contacts: contacts.count || 0, events: events.data ? 1 : 0, present, late });
+    }
+    load();
+    return () => { active = false; };
+  }, []);
+  return <div className="page-shell">
+    <header className="page-header"><div><p className="eyebrow">Festival of Praise / Operations</p><h1>Dashboard</h1><p className="page-description">A clear view of your registered members and today’s attendance.</p></div><Link className="primary-button" href="/attendance">Open attendance</Link></header>
+    {message && <p className="notice">{message}</p>}
+    <section className="stats-grid">
+      {[{title:'Registered contacts',value:stats.contacts,meta:'People in the directory'},{title:'Checked in today',value:stats.present,meta:'Marked present'},{title:'Arrived late',value:stats.late,meta:'Marked late'},{title:'Sessions today',value:stats.events,meta:'Scheduled attendance sessions'}].map(card=><article key={card.title} className="stat-card"><span>{card.title}</span><strong>{card.value}</strong><small>{card.meta}</small></article>)}
+    </section>
+    <section className="panel-grid two-col">
+      <article className="panel-card"><p className="eyebrow">Daily workflow</p><h2>Take attendance</h2><p className="muted">Choose the session, search for a member, and mark them present or late. The system records the time and prevents duplicate check-ins.</p><Link href="/attendance" className="text-link">Go to check-in</Link></article>
+      <article className="panel-card"><p className="eyebrow">Member directory</p><h2>Keep records up to date</h2><p className="muted">Find contacts by name, email, phone number, role, or church. Add new members when someone arrives for the first time.</p><Link href="/contacts" className="text-link">Open contacts</Link></article>
+    </section>
+  </div>;
 }
