@@ -10,6 +10,7 @@ const items = [
   { label: 'Contacts', href: '/contacts' },
   { label: 'Attendance', href: '/attendance' },
   { label: 'Reports', href: '/reports', superAdmin: true },
+  { label: 'Manage admins', href: '/admins', superAdmin: true },
 ];
 
 export function Sidebar() {
