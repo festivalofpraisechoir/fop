@@ -1,32 +1,51 @@
-export function Sidebar() {
-  const items = [
-    { label: 'Dashboard', href: '/dashboard' },
-    { label: 'Contacts', href: '/contacts' },
-    { label: 'Attendance', href: '/attendance' },
-    { label: 'Reports', href: '/reports' },
-  ];
+'use client';
 
+import Link from 'next/link';
+import { usePathname, useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { createSupabaseClient } from '@/lib/supabase';
+
+const items = [
+  { label: 'Dashboard', href: '/dashboard' },
+  { label: 'Contacts', href: '/contacts' },
+  { label: 'Attendance', href: '/attendance' },
+  { label: 'Reports', href: '/reports', superAdmin: true },
+];
+
+export function Sidebar() {
+  const pathname = usePathname();
+  const router = useRouter();
+  const [role, setRole] = useState('admin');
+  const [email, setEmail] = useState('');
+  useEffect(() => {
+    const supabase = createSupabaseClient();
+    if (!supabase) return;
+    supabase.auth.getUser().then(({ data }) => {
+      setEmail(data.user?.email || '');
+      setRole(data.user?.app_metadata?.role === 'super_admin' ? 'super_admin' : 'admin');
+    });
+  }, []);
+  async function signOut() {
+    const supabase = createSupabaseClient();
+    if (supabase) await supabase.auth.signOut();
+    router.replace('/login');
+    router.refresh();
+  }
   return (
     <aside className="sidebar">
-      <div className="brand-wrap">
+      <Link href="/dashboard" className="brand-wrap">
         <div className="brand-mark small">FOP</div>
-        <div>
-          <span className="brand-name">Festival of Praise</span>
-          <small>Operations</small>
-        </div>
-      </div>
-
-      <nav className="sidebar-nav">
-        {items.map((item) => (
-          <a key={item.label} href={item.href} className="nav-item">
-            {item.label}
-          </a>
+        <div><span className="brand-name">Festival of Praise</span><small>Attendance management</small></div>
+      </Link>
+      <nav className="sidebar-nav" aria-label="Main navigation">
+        {items.filter(item => !item.superAdmin || role === 'super_admin').map(item => (
+          <Link key={item.href} href={item.href} className={`nav-item ${pathname === item.href ? 'active' : ''}`} aria-current={pathname === item.href ? 'page' : undefined}>{item.label}</Link>
         ))}
       </nav>
-
       <div className="sidebar-footer">
-        <span>Admin access</span>
-        <strong>Super admin</strong>
+        <span className="role-label">{role === 'super_admin' ? 'Super Admin' : 'Admin'}</span>
+        <strong title={email}>{email || 'Authorised team member'}</strong>
+        <button type="button" className="signout-button" onClick={signOut}>Sign out</button>
       </div>
     </aside>
   );

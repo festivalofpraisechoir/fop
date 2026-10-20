@@ -1,108 +1,51 @@
-const attendees = [
-  { name: 'Michael Ziki', status: 'Present', time: '17:03', church: 'Forward in Faith Ministries' },
-  { name: 'Rachid', status: 'Present', time: '17:09', church: 'RCCG Stockpoort Road' },
-  { name: 'Hans', status: 'Late', time: '17:40', church: 'Winners Chapel Birmingham' },
-  { name: 'Sam', status: 'Absent', time: '-', church: 'Jubilee Church Manchester' },
-];
+'use client';
 
-export default function AttendancePage() {
-  return (
-    <div className="page-shell">
-      <header className="page-header">
-        <div>
-          <p className="eyebrow">Live session</p>
-          <h1>Attendance check-in</h1>
-        </div>
-        <div className="inline-actions">
-          <button className="secondary-button">Generate QR</button>
-          <button className="primary-button">Start session</button>
-        </div>
-      </header>
+import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { createSupabaseClient, type ContactRecord, type EventSession } from '@/lib/supabase';
 
-      <section className="panel-grid two-col">
-        <div className="panel-card">
-          <div className="panel-header">
-            <h2>Quick search</h2>
-          </div>
-
-          <div className="field-group">
-            <label htmlFor="search">Name, email or phone</label>
-            <input id="search" placeholder="Search member" />
-          </div>
-
-          <div className="checkin-actions">
-            <button className="primary-button">Mark present</button>
-            <button className="secondary-button">Mark late</button>
-            <button className="secondary-button danger-inline">Mark absent</button>
-          </div>
-
-          <div className="quick-add-box">
-            <h3>New attendee</h3>
-            <p>If someone is not on the roster, add them in seconds and mark them present.</p>
-            <button className="secondary-button full-width">Add walk-in</button>
-          </div>
-        </div>
-
-        <div className="panel-card">
-          <div className="panel-header">
-            <h2>Session overview</h2>
-            <span className="status-pill success">Open</span>
-          </div>
-
-          <div className="qr-box">
-            <div className="qr-code">QR</div>
-            <p>Rehearsal QR for Wednesday 12 June</p>
-          </div>
-
-          <div className="session-stats">
-            <div>
-              <span>Present</span>
-              <strong>18</strong>
-            </div>
-            <div>
-              <span>Late</span>
-              <strong>2</strong>
-            </div>
-            <div>
-              <span>Absent</span>
-              <strong>7</strong>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="panel-card">
-        <div className="panel-header">
-          <h2>Current attendees</h2>
-        </div>
-
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Status</th>
-                <th>Check-in time</th>
-                <th>Church</th>
-              </tr>
-            </thead>
-            <tbody>
-              {attendees.map((person) => (
-                <tr key={person.name}>
-                  <td>{person.name}</td>
-                  <td>
-                    <span className={person.status === 'Present' ? 'status-pill success' : person.status === 'Late' ? 'status-pill warning' : 'status-pill danger'}>
-                      {person.status}
-                    </span>
-                  </td>
-                  <td>{person.time}</td>
-                  <td>{person.church}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
-    </div>
-  );
+type Row = { id:string; contact_id:string; event_id:string; status:'Present'|'Late'|'Absent'; check_in_time:string|null; contact?:{full_name:string;email:string|null;phone_number:string|null;church_name:string|null}|null };
+export default function AttendancePage(){
+  const [events,setEvents]=useState<EventSession[]>([]);
+  const [eventId,setEventId]=useState('');
+  const [contacts,setContacts]=useState<ContactRecord[]>([]);
+  const [rows,setRows]=useState<Row[]>([]);
+  const [search,setSearch]=useState('');
+  const [selected,setSelected]=useState<ContactRecord|null>(null);
+  const [role,setRole]=useState('admin');
+  const [title,setTitle]=useState('Rehearsal');
+  const [date,setDate]=useState(new Date().toLocaleDateString('en-CA'));
+  const [type,setType]=useState<'Rehearsal'|'Service'|'Meeting'>('Rehearsal');
+  const [createOpen,setCreateOpen]=useState(false);
+  const [message,setMessage]=useState('');
+  const [busy,setBusy]=useState(false);
+  const activeEvent=events.find(e=>e.id===eventId);
+  async function loadEvents(){
+    const s=createSupabaseClient();if(!s){setMessage('Supabase is not configured.');return;}
+    const [{data,error},{data:userData}]=await Promise.all([s.from('attendance_events').select('*').order('event_date',{ascending:false}),s.auth.getUser()]);
+    if(error){setMessage('Could not load sessions. Apply the Supabase migration and check access permissions.');return;}
+    setEvents((data||[]) as EventSession[]);
+    setRole(userData.user?.app_metadata?.role==='super_admin'?'super_admin':'admin');
+    if(!eventId&&data?.length)setEventId(data.find(e=>e.status==='open')?.id||data[0].id);
+  }
+  async function loadContacts(){const s=createSupabaseClient();if(!s)return;const {data,error}=await s.from('contacts').select('*').order('full_name').limit(2000);if(!error)setContacts((data||[]) as ContactRecord[]);}
+  async function loadRows(id:string){const s=createSupabaseClient();if(!s||!id){setRows([]);return;}const {data,error}=await s.from('attendance_records').select('id,contact_id,event_id,status,check_in_time,contact:contacts(full_name,email,phone_number,church_name)').eq('event_id',id).order('check_in_time',{ascending:false});if(error){setMessage('Could not load attendance records.');return;}setRows((data||[]) as unknown as Row[]);}
+  useEffect(()=>{loadEvents();loadContacts();},[]);
+  useEffect(()=>{if(eventId)loadRows(eventId);},[eventId]);
+  const filtered=useMemo(()=>contacts.filter(c=>[c.full_name,c.email,c.phone_number,c.church_name].some(v=>v?.toLowerCase().includes(search.toLowerCase()))).slice(0,12),[contacts,search]);
+  const recorded=new Set(rows.map(r=>r.contact_id));
+  async function createEvent(e:FormEvent<HTMLFormElement>){e.preventDefault();const s=createSupabaseClient();if(!s)return;setBusy(true);setMessage('');const {data,error}=await s.from('attendance_events').insert({title:title.trim(),event_date:date,type,created_by:(await s.auth.getUser()).data.user?.id}).select().single();setBusy(false);if(error){setMessage(error.code==='23505'?'A session with this title already exists on that date.':error.message);return;}setEvents(prev=>[data as EventSession,...prev]);setEventId(data.id);setCreateOpen(false);setMessage('Attendance session created.');}
+  async function mark(contact:ContactRecord,status:'Present'|'Late'|'Absent'){if(!eventId)return setMessage('Select or create an attendance session first.');const s=createSupabaseClient();if(!s)return;setBusy(true);setMessage('');const user=await s.auth.getUser();const {error}=await s.from('attendance_records').upsert({contact_id:contact.id,event_id:eventId,status,check_in_time:status==='Absent'?null:new Date().toISOString(),checked_by:user.data.user?.id},{onConflict:'contact_id,event_id'});setBusy(false);if(error){setMessage(error.message);return;}setSelected(null);setSearch('');setMessage(`${contact.full_name} marked ${status.toLowerCase()}.`);await loadRows(eventId);}
+  const present=rows.filter(r=>r.status==='Present').length,late=rows.filter(r=>r.status==='Late').length,absent=rows.filter(r=>r.status==='Absent').length;
+  return <div className="page-shell">
+    <header className="page-header"><div><p className="eyebrow">Live session</p><h1>Attendance check-in</h1><p className="page-description">Search for a registered member and record attendance in seconds.</p></div>{role==='super_admin'&&<button className="primary-button" onClick={()=>setCreateOpen(!createOpen)}>{createOpen?'Cancel':'Create session'}</button>}</header>
+    {message&&<p className="notice" role="status">{message}</p>}
+    {createOpen&&<section className="panel-card"><h2>New attendance session</h2><form className="contact-form" onSubmit={createEvent}><div className="field-group"><label htmlFor="session-title">Session name *</label><input id="session-title" required value={title} onChange={e=>setTitle(e.target.value)}/></div><div className="field-group"><label htmlFor="session-date">Date *</label><input id="session-date" type="date" required value={date} onChange={e=>setDate(e.target.value)}/></div><div className="field-group"><label htmlFor="session-type">Session type</label><select id="session-type" value={type} onChange={e=>setType(e.target.value as typeof type)}><option>Rehearsal</option><option>Service</option><option>Meeting</option></select></div><div className="form-actions"><button className="primary-button" disabled={busy}>{busy?'Creating…':'Create session'}</button></div></form></section>}
+    <section className="panel-card session-select-panel"><div className="field-group session-select"><label htmlFor="session-select">Attendance session</label><select id="session-select" value={eventId} onChange={e=>setEventId(e.target.value)}><option value="">Select a session</option>{events.map(e=><option key={e.id} value={e.id}>{e.event_date} · {e.title} {e.status==='closed'?'(closed)':''}</option>)}</select></div>{activeEvent&&<div className="session-current"><span className={`status-pill ${activeEvent.status==='open'?'success':'neutral'}`}>{activeEvent.status==='open'?'Open':'Closed'}</span><strong>{activeEvent.title}</strong><span className="muted">{activeEvent.event_date} · {activeEvent.type}</span></div>}</section>
+    <section className="stats-grid three-stats"><article className="stat-card"><span>Present</span><strong>{present}</strong><small>Checked in</small></article><article className="stat-card"><span>Late</span><strong>{late}</strong><small>Arrived late</small></article><article className="stat-card"><span>Absent</span><strong>{absent}</strong><small>Marked absent</small></article></section>
+    <section className="panel-grid two-col">
+      <article className="panel-card"><div className="panel-header"><div><p className="eyebrow">Find a member</p><h2>Quick check-in</h2></div></div><div className="field-group"><label htmlFor="member-search">Name, email or phone</label><input id="member-search" className="large-search" placeholder="Start typing a member’s details" value={search} onChange={e=>{setSearch(e.target.value);setSelected(null);}} disabled={!eventId||activeEvent?.status==='closed'}/></div>{search&&<div className="search-results">{filtered.map(c=><button type="button" key={c.id} className={`search-result ${selected?.id===c.id?'chosen':''}`} onClick={()=>setSelected(c)}><span><strong>{c.full_name}</strong><small>{c.email||c.phone_number||'No contact detail'} · {c.singer_or_musician}</small></span><span className="muted">{recorded.has(c.id)?'Recorded':'Select'}</span></button>)}{!filtered.length&&<div className="empty-state">No matching contact found. Ask an authorised team member to add this person in Contacts.</div>}</div>}{selected&&<div className="selected-contact"><div><p className="eyebrow">Selected member</p><h3>{selected.full_name}</h3><p className="muted">{selected.part_or_instrument||selected.singer_or_musician} · {selected.church_name||'Church not recorded'}</p>{recorded.has(selected.id)&&<p className="notice">Attendance is already recorded for this session. Saving a status again will update it.</p>}</div><div className="checkin-actions"><button className="primary-button" disabled={busy} onClick={()=>mark(selected,'Present')}>Mark present</button><button className="secondary-button" disabled={busy} onClick={()=>mark(selected,'Late')}>Mark late</button><button className="secondary-button" disabled={busy} onClick={()=>mark(selected,'Absent')}>Mark absent</button></div></div>}{!eventId&&<p className="notice">Choose a session first. A Super Admin can create one.</p>}</article>
+      <article className="panel-card"><p className="eyebrow">Check-in guidance</p><h2>Keep the queue moving</h2><ol className="simple-steps"><li>Choose the correct rehearsal or service date.</li><li>Search by name, email or phone number.</li><li>Confirm the member’s name, then mark their status.</li><li>For someone new, add their contact record and return here to check them in.</li></ol><p className="muted">Each member can have one attendance record per session. If a record already exists, the status is updated rather than duplicated.</p></article>
+    </section>
+    <section className="panel-card"><div className="panel-header"><div><p className="eyebrow">Session register</p><h2>Recorded attendance</h2></div><span className="count-label">{rows.length} records</span></div><div className="table-wrap"><table><thead><tr><th>Member</th><th>Church</th><th>Status</th><th>Check-in time</th></tr></thead><tbody>{rows.map(r=><tr key={r.id}><td><strong>{r.contact?.full_name||'Unknown contact'}</strong><small className="table-subtext">{r.contact?.email||r.contact?.phone_number||''}</small></td><td>{r.contact?.church_name||'—'}</td><td><span className={`status-pill ${r.status==='Present'?'success':r.status==='Late'?'warning':'neutral'}`}>{r.status}</span></td><td>{r.check_in_time?new Date(r.check_in_time).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):'—'}</td></tr>)}</tbody></table>{!rows.length&&<div className="empty-state">No attendance has been recorded for this session yet.</div>}</div></section>
+  </div>;
 }
