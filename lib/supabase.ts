@@ -16,6 +16,8 @@ export type ContactRecord = {
   part_or_instrument: string | null;
   church_name: string | null;
   church_letter_submitted: boolean;
+  barcode_code: string | null;
+  registered_at: string | null;
   created_at: string;
 };
 
