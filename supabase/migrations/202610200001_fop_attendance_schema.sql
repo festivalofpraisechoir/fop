@@ -18,7 +18,7 @@ create table if not exists public.contacts (
   part_or_instrument text,
   church_name text,
   church_letter_submitted boolean not null default false,
-  registered_at timestamptz,
+  registered_at text,
   barcode_code text unique default encode(gen_random_bytes(16), 'hex'),
   source text not null default 'manual',
   created_at timestamptz not null default now(),
