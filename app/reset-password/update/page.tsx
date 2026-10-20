@@ -1,0 +1,11 @@
+'use client';
+
+import { FormEvent, useState } from 'react';
+import Link from 'next/link';
+import { createSupabaseClient } from '@/lib/supabase';
+
+export default function UpdatePasswordPage(){
+ const [password,setPassword]=useState('');const [confirm,setConfirm]=useState('');const [message,setMessage]=useState('');const [error,setError]=useState('');const [busy,setBusy]=useState(false);
+ async function submit(e:FormEvent<HTMLFormElement>){e.preventDefault();setError('');setMessage('');if(password.length<8){setError('Use at least 8 characters for your new password.');return;}if(password!==confirm){setError('The passwords do not match.');return;}const s=createSupabaseClient();if(!s){setError('Supabase is not configured yet.');return;}setBusy(true);const {error}=await s.auth.updateUser({password});setBusy(false);if(error){setError('The password could not be updated. Open the latest reset email and try again.');return;}await s.auth.signOut();setMessage('Your password has been updated. Sign in with your new password.');}
+ return <main className="auth-shell"><section className="auth-card"><div className="auth-brand"><div className="brand-mark">FOP</div><div><p className="eyebrow">Festival of Praise</p><h1>Choose a new password</h1></div></div><p className="auth-intro">Use the secure link from your reset email to set a new password.</p>{error&&<p className="notice error-notice" role="alert">{error}</p>}{message&&<p className="notice" role="status">{message}</p>}<form className="auth-form" onSubmit={submit}><div className="field-group"><label htmlFor="new-password">New password</label><input id="new-password" type="password" minLength={8} required autoComplete="new-password" value={password} onChange={e=>setPassword(e.target.value)}/></div><div className="field-group"><label htmlFor="confirm-password">Confirm new password</label><input id="confirm-password" type="password" minLength={8} required autoComplete="new-password" value={confirm} onChange={e=>setConfirm(e.target.value)}/></div><button className="primary-button full-width" disabled={busy}>{busy?'Updating…':'Update password'}</button></form><p className="auth-footnote"><Link href="/login">Return to sign in</Link></p></section></main>;
+}
