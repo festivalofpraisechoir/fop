@@ -7,7 +7,9 @@ import { createSupabaseClient } from '@/lib/supabase';
 
 export default function LoginPage() {
   const router = useRouter();
-  const [nextPath, setNextPath] = useState('/dashboard');\n  const [setupMissing, setSetupMissing] = useState(false);\n  useEffect(() => { const query = new URLSearchParams(window.location.search); setNextPath(query.get('next') || '/dashboard'); setSetupMissing(query.get('setup') === 'supabase'); }, []);
+  const [nextPath, setNextPath] = useState('/dashboard');
+  const [setupMissing, setSetupMissing] = useState(false);
+  useEffect(() => { const query = new URLSearchParams(window.location.search); setNextPath(query.get('next') || '/dashboard'); setSetupMissing(query.get('setup') === 'supabase'); }, []);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
