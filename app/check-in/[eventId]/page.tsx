@@ -19,12 +19,10 @@ export default function PublicCheckIn() {
   const [result, setResult] = useState<Confirmation | null>(null);
 
   useEffect(() => {
-    const supabase = createSupabaseClient();
-    if (!supabase) { setError('Attendance check-in is temporarily unavailable.'); return; }
-    supabase.from('attendance_events').select('id,title,event_date,status').eq('id',eventId).maybeSingle().then(({ data, error }) => {
-      if (error || !data) setError('Session not found. Please ask an administrator for a current QR code.');
-      else setSession(data as Session);
-    });
+    fetch('/api/public-check-in?eventId=' + encodeURIComponent(eventId), { cache: 'no-store' })
+      .then(async response => { if (!response.ok) throw new Error('Session not found.'); return response.json(); })
+      .then(data => setSession(data as Session))
+      .catch(() => setError('Session not found. Please ask an administrator for a current QR code.'));
   }, [eventId]);
 
   async function sendCode(e: FormEvent<HTMLFormElement>) {
