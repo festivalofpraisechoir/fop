@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
   const email = typeof body === 'object' && body !== null && 'email' in body && typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) return NextResponse.json({ error: 'Enter a valid email address.' }, { status: 400 });
   // Only the admin role can be granted from this endpoint. No privilege escalation to Super Admin.
-  const { data, error } = await access.pair.admin.auth.admin.inviteUserByEmail(email);
+  const { data, error } = await access.pair.admin.auth.admin.inviteUserByEmail(email, { redirectTo: new URL('/reset-password/update', request.url).origin + '/reset-password/update' });
   if (error || !data.user) return NextResponse.json({ error: 'Could not invite this user. They may already have an account or email invitations may not be configured.' }, { status: 400 });
   const updated = await access.pair.admin.auth.admin.updateUserById(data.user.id, { app_metadata: { ...data.user.app_metadata, role: 'admin' } });
   if (updated.error) {
