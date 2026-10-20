@@ -31,26 +31,22 @@ export function Sidebar() {
     router.replace('/login');
     router.refresh();
   }
-  if (pathname === '/login' || pathname === '/register' || pathname.startsWith('/check-in/')) return null;
   return (
-    <div className="app-shell">
-      <aside className="sidebar">
-        <Link href="/dashboard" className="brand-wrap">
-          <div className="brand-mark small">FOP</div>
-          <div><span className="brand-name">Festival of Praise</span><small>Attendance management</small></div>
-        </Link>
-        <nav className="sidebar-nav" aria-label="Main navigation">
-          {items.filter(item => !item.superAdmin || role === 'super_admin').map(item => (
-            <Link key={item.href} href={item.href} className={`nav-item ${pathname === item.href ? 'active' : ''}`} aria-current={pathname === item.href ? 'page' : undefined}>{item.label}</Link>
-          ))}
-        </nav>
-        <div className="sidebar-footer">
-          <span className="role-label">{role === 'super_admin' ? 'Super Admin' : 'Admin'}</span>
-          <strong title={email}>{email || 'Authorised team member'}</strong>
-          <button type="button" className="signout-button" onClick={signOut}>Sign out</button>
-        </div>
-      </aside>
-      <main className="main-panel">{/* route content is rendered by the root layout */}</main>
-    </div>
+    <aside className="sidebar">
+      <Link href="/dashboard" className="brand-wrap">
+        <div className="brand-mark small">FOP</div>
+        <div><span className="brand-name">Festival of Praise</span><small>Attendance management</small></div>
+      </Link>
+      <nav className="sidebar-nav" aria-label="Main navigation">
+        {items.filter(item => !item.superAdmin || role === 'super_admin').map(item => (
+          <Link key={item.href} href={item.href} className={`nav-item ${pathname === item.href ? 'active' : ''}`} aria-current={pathname === item.href ? 'page' : undefined}>{item.label}</Link>
+        ))}
+      </nav>
+      <div className="sidebar-footer">
+        <span className="role-label">{role === 'super_admin' ? 'Super Admin' : 'Admin'}</span>
+        <strong title={email}>{email || 'Authorised team member'}</strong>
+        <button type="button" className="signout-button" onClick={signOut}>Sign out</button>
+      </div>
+    </aside>
   );
 }
