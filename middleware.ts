@@ -36,7 +36,14 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(destination);
   }
 
-  if (user && !isPublic && !['admin', 'super_admin'].includes(String(user.app_metadata?.role || ''))) {\n    const destination = request.nextUrl.clone();\n    destination.pathname = '/access-denied';\n    destination.search = '';\n    return NextResponse.redirect(destination);\n  }\n\n  if (user && path === '/login') {
+  if (user && !isPublic && !['admin', 'super_admin'].includes(String(user.app_metadata?.role || ''))) {
+    const destination = request.nextUrl.clone();
+    destination.pathname = '/access-denied';
+    destination.search = '';
+    return NextResponse.redirect(destination);
+  }
+
+  if (user && path === '/login') {
     const destination = request.nextUrl.clone();
     destination.pathname = '/dashboard';
     return NextResponse.redirect(destination);
