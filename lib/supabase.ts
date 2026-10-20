@@ -1,25 +1,20 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { createBrowserClient } from '@supabase/ssr';
 
-export function createSupabaseClient(): SupabaseClient | null {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  if (!supabaseUrl || !supabaseAnonKey) {
-    return null;
-  }
-
-  const { createClient } = require('@supabase/supabase-js');
-  return createClient(supabaseUrl, supabaseAnonKey);
+export function createSupabaseClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !key) return null;
+  return createBrowserClient(url, key);
 }
 
 export type ContactRecord = {
   id: string;
   full_name: string;
-  email: string;
-  phone_number: string;
+  email: string | null;
+  phone_number: string | null;
   singer_or_musician: 'Singer' | 'Musician';
-  part_or_instrument: string;
-  church_name: string;
+  part_or_instrument: string | null;
+  church_name: string | null;
   church_letter_submitted: boolean;
   created_at: string;
 };
@@ -27,10 +22,10 @@ export type ContactRecord = {
 export type AttendanceRecord = {
   id: string;
   contact_id: string;
-  event_date: string;
+  event_id: string;
   status: 'Present' | 'Late' | 'Absent';
   check_in_time: string | null;
-  notes?: string;
+  notes?: string | null;
 };
 
 export type EventSession = {
@@ -38,13 +33,11 @@ export type EventSession = {
   title: string;
   event_date: string;
   type: 'Rehearsal' | 'Service' | 'Meeting';
-  created_by: string;
+  created_by: string | null;
+  status: 'open' | 'closed';
 };
 
 export const appConfig = {
-  appName: 'FOP Attendance CRM',
-  roleLabels: {
-    superAdmin: 'Super admin',
-    admin: 'Admin',
-  },
+  appName: 'FOP Attendance',
+  roleLabels: { super_admin: 'Super Admin', admin: 'Admin' },
 };
