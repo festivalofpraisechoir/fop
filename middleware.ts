@@ -27,7 +27,7 @@ export async function middleware(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser();
   const path = request.nextUrl.pathname;
-  const isPublic = path === '/login' || path === '/register' || path === '/access-denied' || path.startsWith('/check-in/');
+  const isPublic = path === '/login' || path === '/register' || path === '/reset-password' || path === '/access-denied' || path.startsWith('/check-in/');
 
   if (!user && !isPublic) {
     const destination = request.nextUrl.clone();
