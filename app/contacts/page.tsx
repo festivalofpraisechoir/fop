@@ -46,7 +46,7 @@ export default function ContactsPage() {
     const headers=parse(lines[0]).map(h=>h.toLowerCase());
     const index=(...terms:string[])=>headers.findIndex(h=>terms.some(t=>h.includes(t)));
     const timestampI=index('timestamp'),nameI=index('name'),emailI=index('email'),phoneI=index('phone'),typeI=index('singer or musician','type','role'),partI=index('what part','voice part','part'),instrumentI=index('instrument'),churchI=index('church'),letterI=index('letter');
-    return lines.slice(1).map(line=>{const r=parse(line);const type=r[typeI]?.toLowerCase().includes('musician')?'Musician':'Singer';return {registered_at:r[timestampI]||'',full_name:r[nameI]||'',email:r[emailI]||'',phone_number:r[phoneI]||'',singer_or_musician:type,part_or_instrument:(type==='Musician'?r[instrumentI]:r[partI])||'',church_name:r[churchI]||'',church_letter_submitted:/^(yes|true|submitted)$/i.test(r[letterI]||'')};}).filter(r=>r.full_name);
+    return lines.slice(1).map(line=>{const r=parse(line);const type: ContactDraft['singer_or_musician']=r[typeI]?.toLowerCase().includes('musician')?'Musician':'Singer';return {registered_at:r[timestampI]||'',full_name:r[nameI]||'',email:r[emailI]||'',phone_number:r[phoneI]||'',singer_or_musician:type,part_or_instrument:(type==='Musician'?r[instrumentI]:r[partI])||'',church_name:r[churchI]||'',church_letter_submitted:/^(yes|true|submitted)$/i.test(r[letterI]||'')};}).filter(r=>r.full_name);
   }
   async function handleFile(e:ChangeEvent<HTMLInputElement>){
     const file=e.target.files?.[0];if(!file)return;setCsvName(file.name);setMessage('');
