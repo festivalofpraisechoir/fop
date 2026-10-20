@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { validQr } from '@/lib/attendance-qr';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,9 +14,12 @@ export async function POST(request: NextRequest) {
   const auth = createClient(url, anon, { auth: { persistSession: false, autoRefreshToken: false } });
   const { data: { user }, error: authError } = await auth.auth.getUser(token);
   if (authError || !user?.email || !user.email_confirmed_at) return NextResponse.json({ error: 'Your email could not be verified.' }, { status: 401 });
-  let body: { eventId?: string };
+  let body: { eventId?: string; qrToken?: string };
   try { body = await request.json(); } catch { return NextResponse.json({ error: 'Invalid request.' }, { status: 400 }); }
   if (!body.eventId || !/^[0-9a-f-]{36}$/i.test(body.eventId)) return NextResponse.json({ error: 'Invalid session.' }, { status: 400 });
+  let valid = false;
+  try { valid = validQr(body.eventId, body.qrToken || ''); } catch { return NextResponse.json({ error: 'QR verification is not configured.' }, { status: 503 }); }
+  if (!valid) return NextResponse.json({ error: 'QR_EXPIRED', message: 'This QR code has expired. Scan the currently displayed QR code again.' }, { status: 409 });
   const admin = createClient(url, secret, { auth: { persistSession: false, autoRefreshToken: false } });
   const { data: event } = await admin.from('attendance_events').select('id,title,event_date,status').eq('id',body.eventId).maybeSingle();
   if (!event || event.status !== 'open') return NextResponse.json({ error: 'This attendance session is not open.' }, { status: 400 });
