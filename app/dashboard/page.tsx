@@ -1,16 +1,16 @@
+const summaryCards = [
+  { title: 'Members', value: '482', meta: 'Registered contacts' },
+  { title: 'Present today', value: '316', meta: '+19 vs last week' },
+  { title: 'Late', value: '23', meta: 'Recently checked in' },
+  { title: 'Missing', value: '78', meta: 'Need follow-up' },
+];
+
+const attendanceByRole = [
+  { label: 'Singers', value: 58 },
+  { label: 'Musicians', value: 42 },
+];
+
 export default function DashboardPage() {
-  const summaryCards = [
-    { title: 'Members', value: '482', meta: 'Registered contacts' },
-    { title: 'Present today', value: '316', meta: '+19 vs last week' },
-    { title: 'Late', value: '23', meta: 'Recently checked in' },
-    { title: 'Missing', value: '78', meta: 'Need follow-up' },
-  ];
-
-  const attendanceByRole = [
-    { label: 'Singers', value: 58, total: 100 },
-    { label: 'Musicians', value: 42, total: 100 },
-  ];
-
   return (
     <div className="page-shell">
       <header className="page-header">
@@ -55,13 +55,8 @@ export default function DashboardPage() {
             <h2>Recent imports</h2>
             <span className="status-pill neutral">Synced</span>
           </div>
-
           <div className="list-stack">
-            {[
-              'Wednesday rehearsal roster.csv',
-              'Sunday service members.xlsx',
-              'Keyboard section.pdf',
-            ].map((item) => (
+            {['Wednesday rehearsal roster.csv', 'Sunday service members.xlsx', 'Keyboard section.pdf'].map((item) => (
               <div key={item} className="list-row">
                 <div>
                   <strong>{item}</strong>

@@ -12,7 +12,7 @@ export default function LoginPage() {
           </div>
         </div>
 
-        <form className="auth-form">
+        <div className="auth-form">
           <div className="field-group">
             <label htmlFor="email">Email</label>
             <input id="email" type="email" defaultValue="operations@festivalofpraise.org" />
@@ -34,7 +34,7 @@ export default function LoginPage() {
           <Link href="/dashboard" className="primary-button full-width">
             Sign in
           </Link>
-        </form>
+        </div>
       </div>
     </div>
   );

@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-export function createSupabaseClient() {
+export function createSupabaseClient(): SupabaseClient | null {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
@@ -8,7 +8,8 @@ export function createSupabaseClient() {
     return null;
   }
 
-  return require('@supabase/supabase-js').createClient(supabaseUrl, supabaseAnonKey);
+  const { createClient } = require('@supabase/supabase-js');
+  return createClient(supabaseUrl, supabaseAnonKey);
 }
 
 export type ContactRecord = {

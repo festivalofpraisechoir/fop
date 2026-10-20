@@ -91,9 +91,7 @@ export default function AttendancePage() {
                 <tr key={person.name}>
                   <td>{person.name}</td>
                   <td>
-                    <span className={
-                      person.status === 'Present' ? 'status-pill success' : person.status === 'Late' ? 'status-pill warning' : 'status-pill danger'
-                    }>
+                    <span className={person.status === 'Present' ? 'status-pill success' : person.status === 'Late' ? 'status-pill warning' : 'status-pill danger'}>
                       {person.status}
                     </span>
                   </td>

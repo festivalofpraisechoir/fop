@@ -7,7 +7,7 @@ const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
   title: 'FOP Attendance CRM',
-  description: 'Professional attendance and member management dashboard for the choir team.',
+  description: 'Professional attendance and member management dashboard for choir and music team operations.',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
