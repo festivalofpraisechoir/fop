@@ -57,7 +57,14 @@ export default function ContactsPage() {
     if(!csvRows?.length)return;const supabase=createSupabaseClient();if(!supabase)return;
     const existingEmails=new Set(contacts.map(c=>c.email?.trim().toLowerCase()).filter(Boolean));
     const existingPhones=new Set(contacts.map(c=>c.phone_number?.replace(/\s/g,'')).filter(Boolean));
-    const unique=csvRows.filter(r=>!((r.email&&existingEmails.has(r.email.trim().toLowerCase()))||(r.phone_number&&existingPhones.has(r.phone_number.replace(/\s/g,'')))));
+    const unique=csvRows.filter(r=>{
+      const email=r.email.trim().toLowerCase();
+      const phone=r.phone_number.replace(/\s/g,'');
+      if((email&&existingEmails.has(email))||(phone&&existingPhones.has(phone)))return false;
+      if(email)existingEmails.add(email);
+      if(phone)existingPhones.add(phone);
+      return true;
+    });
     const valid=unique.filter(r=>r.full_name.trim()).map(r=>({...r,full_name:r.full_name.trim(),email:r.email.trim()||null,phone_number:r.phone_number.trim()||null,part_or_instrument:r.part_or_instrument||null,church_name:r.church_name||null,source:'csv'}));
     if(!valid.length){setMessage('No new contacts to import. Existing email addresses or phone numbers were skipped.');return;}
     setBusy(true);const {error}=await supabase.from('contacts').insert(valid);setBusy(false);
