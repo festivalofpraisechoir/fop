@@ -25,7 +25,7 @@ export type AttendanceRecord = {
   id: string;
   contact_id: string;
   event_id: string;
-  status: 'Present' | 'Late' | 'Absent';
+  status: 'Present' | 'Late' | 'Absent' | 'Permission';
   check_in_time: string | null;
   notes?: string | null;
 };
