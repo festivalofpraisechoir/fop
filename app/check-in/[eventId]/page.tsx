@@ -20,6 +20,7 @@ export default function PublicCheckIn() {
   const [error, setError] = useState('');
   const [result, setResult] = useState<Confirmation | null>(null);
   const [needsFreshQr,setNeedsFreshQr]=useState(false);
+  const [returningEmail,setReturningEmail]=useState<string|null>(null);
 
   useEffect(() => {
     fetch('/api/public-check-in?eventId=' + encodeURIComponent(eventId), { cache: 'no-store' })
@@ -37,8 +38,7 @@ export default function PublicCheckIn() {
     }
     setNeedsFreshQr(false);
     setResult(body as Confirmation);
-    const supabase = createSupabaseClient();
-    if (supabase) await supabase.auth.signOut();
+    // Keep the verified attendee session on this device for future QR check-ins.
   }
 
   useEffect(() => {
@@ -48,8 +48,10 @@ export default function PublicCheckIn() {
     let cancelled=false;
     void s.auth.getSession().then(async ({data})=>{
       if(cancelled || !data.session) return;
+      setReturningEmail(data.session.user.email || null);
       setBusy(true);
-      try { await completeCheckIn(data.session.access_token); }
+      setReturningEmail(data.session.user.email || null);
+    try { await completeCheckIn(data.session.access_token); }
       catch(e){ if(!cancelled)setError(e instanceof Error?e.message:'Unable to check in.'); }
       finally { if(!cancelled)setBusy(false); }
     });
@@ -83,11 +85,13 @@ export default function PublicCheckIn() {
     {session && <div><h2>{session.title}</h2><p className="auth-intro">{session.event_date} · {session.status === 'open' ? 'Check-in open' : 'Check-in closed'}</p></div>}
     {needsFreshQr&&!result&&<div className="notice" role="status"><strong>Scan the live QR code again.</strong> Your email is verified, but the QR code expired while you were checking your email. Scan the code currently displayed at the entrance to finish check-in. You will not need another email code.</div>}
     {result ? <div role="status"><h2>{result.alreadyRecorded ? 'Already checked in' : 'You are checked in!'}</h2><p>{result.name}, your attendance for {result.session} is recorded as {result.status}.</p><p className="muted">You can close this page.</p></div> : <>
-      <p className="auth-intro">Use the email address you registered with. We will send a one-time verification code to confirm it is you.</p>
+      <p className="auth-intro">First visit? Verify your registered email once. On this device, future QR scans can check you in automatically while your secure sign-in remains active.</p>
+      {returningEmail&&<p className="muted">Signed in as {returningEmail}. {busy?'Checking you in…':'If this is not your email, switch accounts below.'}</p>}
+      {returningEmail&&<button className="secondary-button full-width" type="button" disabled={busy} onClick={async()=>{const s=createSupabaseClient();if(s)await s.auth.signOut();setReturningEmail(null);setStep('email');setNeedsFreshQr(false);setError('');}}>Use a different member account</button>}
       {error && <p className="notice error-notice" role="alert">{error}</p>}
-      {needsFreshQr ? <p className="auth-intro">Waiting for a fresh QR scan…</p> : step === 'email' ? <form className="auth-form" onSubmit={sendCode}><div className="field-group"><label htmlFor="attendee-email">Registered email address</label><input id="attendee-email" type="email" required autoComplete="email" value={email} onChange={e=>setEmail(e.target.value)} /></div><button className="primary-button full-width" disabled={busy || !session || session.status !== 'open'}>{busy ? 'Sending…' : 'Send verification code'}</button></form>
+      {needsFreshQr ? <p className="auth-intro">Waiting for a fresh QR scan…</p> : returningEmail ? <p className="auth-intro">{busy?'Verifying your QR code…':'If check-in did not complete, scan the current QR code again.'}</p> : step === 'email' ? <form className="auth-form" onSubmit={sendCode}><div className="field-group"><label htmlFor="attendee-email">Registered email address</label><input id="attendee-email" type="email" required autoComplete="email" value={email} onChange={e=>setEmail(e.target.value)} /></div><button className="primary-button full-width" disabled={busy || !session || session.status !== 'open'}>{busy ? 'Sending…' : 'Send verification code'}</button></form>
       : <form className="auth-form" onSubmit={verify}><p className="muted">Enter the code sent to {email}.</p><div className="field-group"><label htmlFor="otp-code">Email verification code</label><input id="otp-code" inputMode="numeric" autoComplete="one-time-code" required value={code} onChange={e=>setCode(e.target.value)} /></div><button className="primary-button full-width" disabled={busy}>{busy ? 'Recording…' : 'Confirm attendance'}</button><button className="secondary-button full-width" type="button" onClick={()=>{setStep('email');setCode('');}}>Use a different email</button></form>}
-      <p className="auth-footnote">Can&apos;t access your registered email? Ask an attendance administrator to check you in.</p>
+      <p className="auth-footnote">Use a private device only. If you share your phone, sign out using “Use a different member account” when finished. Can&apos;t access your registered email? Ask an attendance administrator.</p>
     </>}
   </section></main>;
 }
