@@ -27,7 +27,7 @@ export async function DELETE(request: NextRequest) {
     await admin.from('audit_logs').insert({actor_id:user.id,action:'contact_deleted',entity_type:'contacts',entity_id:body.id,details:{name:contact.full_name}});
     return NextResponse.json({deleted:1},{headers:{'Cache-Control':'no-store'}});
   }
-  if(body.mode!=='all'||body.confirmation!=='DELETE ALL CONTACTS'||!Number.isSafeInteger(body.expectedCount)||body.expectedCount<1)return response('Deletion confirmation is invalid.',400);
+  if(body.mode!=='all'||body.confirmation!=='DELETE ALL CONTACTS'||!Number.isSafeInteger(body.expectedCount)||body.expectedCount === undefined || body.expectedCount<1)return response('Deletion confirmation is invalid.',400);
   const {count,error:countError}=await admin.from('contacts').select('id',{count:'exact',head:true});
   if(countError||count===null)return response('Could not verify the contact count.',500);
   if(count!==body.expectedCount)return response('The contact count has changed. Refresh and confirm again.',409);
