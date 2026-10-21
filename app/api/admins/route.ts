@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { createHash, randomBytes } from 'crypto';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,6 +13,14 @@ function clients() {
     auth: createClient(url, anon, { auth: { persistSession: false, autoRefreshToken: false } }),
     admin: createClient(url, secret, { auth: { persistSession: false, autoRefreshToken: false } }),
   };
+}
+
+async function activation(pair: NonNullable<ReturnType<typeof clients>>, userId: string) {
+  const code = randomBytes(16).toString('hex');
+  const codeHash = createHash('sha256').update(code).digest('hex');
+  const { error } = await pair.admin.from('admin_activation_codes').insert({ user_id: userId, code_hash: codeHash, expires_at: new Date(Date.now() + 15 * 60_000).toISOString() });
+  if (error) throw new Error('Could not generate activation code.');
+  return code;
 }
 
 async function authorised(request: NextRequest) {
@@ -61,19 +70,30 @@ export async function POST(request: NextRequest) {
       if (restoreError) return NextResponse.json({ error: 'Could not restore administrator access.' }, { status: 500 });
       const { data: verified, error: verifyError } = await access.pair.admin.auth.admin.getUserById(existing.id);
       if (verifyError || verified.user?.app_metadata?.role !== 'admin') return NextResponse.json({ error: 'Could not verify restored administrator access.' }, { status: 500 });
-      return NextResponse.json({ admin: { id: existing.id, email, role: 'admin' }, message: 'Administrator access restored. They can sign in with their existing password, or use Forgot password.', restored: true }, { headers: { 'Cache-Control': 'no-store' } });
+      const code = await activation(access.pair, existing.id);
+      return NextResponse.json({ admin: { id: existing.id, email, role: 'admin' }, activationCode: code, message: 'Admin access restored. Share the activation code privately; it expires in 15 minutes.', restored: true }, { headers: { 'Cache-Control': 'no-store' } });
     }
     if (usersPage.users.length < 100) break;
   }
-  // Only the admin role can be granted from this endpoint. No privilege escalation to Super Admin.
-  const { data, error } = await access.pair.admin.auth.admin.inviteUserByEmail(email, { redirectTo: new URL('/reset-password/update', request.url).origin + '/reset-password/update' });
-  if (error || !data.user) return NextResponse.json({ error: 'Could not invite this user. They may already have an account or email invitations may not be configured.' }, { status: 400 });
-  const updated = await access.pair.admin.auth.admin.updateUserById(data.user.id, { app_metadata: { ...data.user.app_metadata, role: 'admin' } });
-  if (updated.error) {
-    // Prevent an invited account with no role from being mistaken for a completed admin invite.
-    return NextResponse.json({ error: 'Invitation sent, but the admin role could not be assigned. Contact the system owner before trying again.' }, { status: 500 });
-  }
-  return NextResponse.json({ admin: { id: data.user.id, email, role: 'admin' }, message: 'Admin invitation sent.' }, { status: 201 });
+  // Create the account without email delivery. Only a Super Admin receives the activation code.
+  const { data, error } = await access.pair.admin.auth.admin.createUser({
+    email, email_confirm: true, password: randomBytes(32).toString('base64url'), app_metadata: { role: 'admin' },
+  });
+  if (error || !data.user) return NextResponse.json({ error: 'Could not create this administrator account.' }, { status: 400 });
+  const code = await activation(access.pair, data.user.id);
+  return NextResponse.json({ admin: { id: data.user.id, email, role: 'admin' }, activationCode: code, message: 'Administrator created. Share the activation code privately; it expires in 15 minutes.' }, { status: 201, headers: { 'Cache-Control': 'no-store' } });
+}
+
+export async function PATCH(request: NextRequest) {
+  const access = await authorised(request);
+  if ('error' in access) return access.error;
+  let body: { id?: string };
+  try { body = await request.json(); } catch { return NextResponse.json({ error: 'Invalid request.' }, { status: 400 }); }
+  if (!body.id) return NextResponse.json({ error: 'Select an administrator.' }, { status: 400 });
+  const { data, error } = await access.pair.admin.auth.admin.getUserById(body.id);
+  if (error || data.user?.app_metadata?.role !== 'admin') return NextResponse.json({ error: 'Only regular Admin accounts can receive activation codes.' }, { status: 403 });
+  const code = await activation(access.pair, body.id);
+  return NextResponse.json({ activationCode: code, email: data.user.email }, { headers: { 'Cache-Control': 'no-store' } });
 }
 
 export async function DELETE(request: NextRequest) {
