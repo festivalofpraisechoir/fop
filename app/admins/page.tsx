@@ -71,14 +71,14 @@ export default function AdminManagementPage() {
 
   async function copyActivation() {
     if (!activation) return;
-    const details = ['FOP Admin Activation', 'https://fop-festival-of-praise.vercel.app/activate-admin', 'Email: ' + activation.email, 'Activation code: ' + activation.code, 'Expires 15 minutes after generation.'].join('\\n');
+    const details = activation.code;
     try {
       if (!navigator.clipboard?.writeText) throw new Error('Clipboard API unavailable');
       await navigator.clipboard.writeText(details);
-      setCopyStatus('Copied! Paste into WhatsApp.');
+      setCopyStatus('Code copied! Paste it into WhatsApp.');
     } catch {
       // Some browsers deny clipboard access. Provide a selectable field for manual copy.
-      setCopyStatus('Automatic copying is blocked. Select the details below and copy them manually.');
+      setCopyStatus('Automatic copying is blocked. Select the code below and copy it manually.');
     }
   }
 
@@ -105,7 +105,7 @@ export default function AdminManagementPage() {
         <div className="field-group"><label htmlFor="admin-email">Email address</label><input id="admin-email" type="email" required autoComplete="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="admin@example.com" /></div>
         <div className="form-actions"><button className="primary-button" type="submit" disabled={saving}>{saving ? 'Saving…' : 'Add / restore admin'}</button></div>
       </form>
-      {activation&&<div className="notice" role="status"><strong>One-time activation code for {activation.email}</strong><p style={{overflowWrap:'anywhere',fontFamily:'monospace'}}>{activation.code}</p><p>Expires in 15 minutes. Share privately with this administrator along with <a href="/activate-admin">the activation page</a>. The code is shown here only until you dismiss it.</p><button type="button" className="secondary-button" onClick={()=>void copyActivation()}>Copy activation details</button>{copyStatus&&<p role="status">{copyStatus}</p>}<textarea readOnly aria-label="Activation details for manual copying" rows={5} style={{width:'100%',marginTop:8}} value={['FOP Admin Activation','https://fop-festival-of-praise.vercel.app/activate-admin','Email: '+activation.email,'Activation code: '+activation.code,'Expires 15 minutes after generation.'].join('\\n')} onClick={e=>e.currentTarget.select()} /> <button type="button" className="secondary-button" onClick={()=>setActivation(null)}>Dismiss</button></div>}
+      {activation&&<div className="notice" role="status"><strong>One-time activation code for {activation.email}</strong><p style={{overflowWrap:'anywhere',fontFamily:'monospace'}}>{activation.code}</p><p>Expires in 15 minutes. Share privately with this administrator along with <a href="/activate-admin">the activation page</a>. The code is shown here only until you dismiss it.</p><button type="button" className="secondary-button" onClick={()=>void copyActivation()}>Copy code</button>{copyStatus&&<p role="status">{copyStatus}</p>}<textarea readOnly aria-label="Activation code for manual copying" rows={2} style={{width:'100%',marginTop:8,fontFamily:'monospace'}} value={activation.code} onClick={e=>e.currentTarget.select()} /> <button type="button" className="secondary-button" onClick={()=>setActivation(null)}>Dismiss</button></div>}
       {error && <p className="notice error-notice" role="alert">{error}</p>}
       {success && <p className="notice" role="status">{success}</p>}
     </section>
