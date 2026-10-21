@@ -42,11 +42,12 @@ export async function POST(request: NextRequest) {
   const matches=(allContacts||[]).filter(contact=>normalisePhone(contact.phone_number||'')===phone);
   if(matches.length!==1)return NextResponse.json({error:'Phone number or PIN not recognised. Ask an administrator for help.'},{status:401});
   const contact=matches[0];
-  const {data:credential,error:pinError}=await admin.from('member_checkin_pins').select('pin_hash').eq('contact_id',contact.id).maybeSingle();
-  if(pinError)return NextResponse.json({error:'Could not verify PIN.'},{status:500});
+  const {data:credential,error:pinError}=await admin.from('shared_checkin_pin').select('pin_hash').eq('id',1).maybeSingle();
+  if(pinError)return NextResponse.json({error:'Could not verify shared PIN.'},{status:500});
+  if(!credential)return NextResponse.json({error:'An administrator has not configured the shared PIN yet.'},{status:503});
   let authenticated=false;
-  try{authenticated=Boolean(credential&&verifyPin(body.pin,credential.pin_hash));}catch{return NextResponse.json({error:'PIN verification is not configured.'},{status:503});}
-  if(!authenticated)return NextResponse.json({error:'Phone number or PIN not recognised. Ask an administrator to assign or reset your PIN.'},{status:401});
+  try{authenticated=verifyPin(body.pin,credential.pin_hash);}catch{return NextResponse.json({error:'PIN verification is not configured.'},{status:503});}
+  if(!authenticated)return NextResponse.json({error:'Incorrect shared PIN. Please ask an administrator.'},{status:401});
   const { data: existing } = await admin.from('attendance_records').select('id,status').eq('event_id',event.id).eq('contact_id',contact.id).maybeSingle();
   if (existing) return NextResponse.json({ success: true, alreadyRecorded: true, name: contact.full_name, status: existing.status, session: event.title }, { headers: { 'Cache-Control': 'no-store' } });
   const { error: insertError } = await admin.from('attendance_records').insert({ event_id: event.id, contact_id: contact.id, status: 'Present', check_in_time: new Date().toISOString() });
