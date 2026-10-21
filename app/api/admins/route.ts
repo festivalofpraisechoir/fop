@@ -77,8 +77,9 @@ export async function DELETE(request: NextRequest) {
   delete metadata.role;
   const { error: updateError } = await access.pair.admin.auth.admin.updateUserById(target.id, { app_metadata: metadata });
   if (updateError) return NextResponse.json({ error: 'Could not remove administrator access.' }, { status: 500 });
-  // Revoke active sessions where supported so previously issued role-bearing tokens cannot be reused.
-  const { error: signOutError } = await access.pair.admin.auth.admin.signOut(target.id, 'global');
-  if (signOutError) return NextResponse.json({ error: 'Admin role removed, but active sessions could not be revoked. Contact the system owner.' }, { status: 500 });
+  // The middleware and privileged APIs re-fetch the user from Supabase Auth
+  // and enforce the current app_metadata role on every protected request.
+  // Supabase admin.signOut expects a user's access JWT, not their user ID;
+  // attempting signOut(target.id) incorrectly fails after role removal.
   return NextResponse.json({ success: true, message: 'Administrator access removed. The user account was retained.' }, { headers: { 'Cache-Control': 'no-store' } });
 }
