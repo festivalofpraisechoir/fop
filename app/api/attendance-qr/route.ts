@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { londonDate } from '@/lib/london-date';
 import { currentQr } from '@/lib/attendance-qr';
 
 export const dynamic = 'force-dynamic';
@@ -15,7 +16,7 @@ export async function GET(request: NextRequest) {
   const eventId = request.nextUrl.searchParams.get('eventId') || '';
   if (!/^[0-9a-f-]{36}$/i.test(eventId)) return NextResponse.json({ error: 'Invalid session.' }, { status: 400 });
   const { data: event } = await supabase.from('attendance_events').select('id,event_date,status').eq('id', eventId).maybeSingle();
-  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+  const today = londonDate();
   if (!event || event.status !== 'open' || event.event_date !== today) return NextResponse.json({ error: 'Only an open session scheduled for today can show a QR code.' }, { status: 400 });
   try { return NextResponse.json(currentQr(eventId), { headers: { 'Cache-Control': 'no-store' } }); }
   catch { return NextResponse.json({ error: 'QR signing secret is not configured.' }, { status: 503 }); }
