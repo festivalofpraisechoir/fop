@@ -17,6 +17,44 @@ export default function AttendancePage(){
   const [date,setDate]=useState(londonDate());
   const [type,setType]=useState<'Rehearsal'|'Service'|'Meeting'>('Rehearsal');
   const [createOpen,setCreateOpen]=useState(false);
+  const [deleteSessionOpen,setDeleteSessionOpen]=useState(false);
+  const [deleteConfirmation,setDeleteConfirmation]=useState('');
+  const [deleteRecordCount,setDeleteRecordCount]=useState<number|null>(null);
+  async function sessionAction(method:'PATCH'|'DELETE',nextStatus?:'open'|'closed'){
+    if(!activeEvent || role!=='super_admin')return;
+    const s=createSupabaseClient();if(!s)return;
+    const {data}=await s.auth.getSession();if(!data.session){setMessage('Please sign in again.');return;}
+    setBusy(true);setMessage('');
+    try{
+      const response=await fetch('/api/attendance-sessions',{method,headers:{'Content-Type':'application/json',Authorization:'Bearer '+data.session.access_token},body:JSON.stringify(method==='PATCH'?{eventId:activeEvent.id,status:nextStatus}:{eventId:activeEvent.id,confirmation:deleteConfirmation,expectedRecordCount:deleteRecordCount})});
+      const result=await response.json();
+      if(!response.ok)throw new Error(result.error||'Session action failed.');
+      if(method==='DELETE'){
+        const deletedId=activeEvent.id;
+        setEvents(prev=>prev.filter(e=>e.id!==deletedId));
+        setEventId('');
+        setRows([]);setQrToken('');setQrError('');setDeleteSessionOpen(false);setDeleteConfirmation('');setDeleteRecordCount(null);
+        setMessage('Session deleted. '+result.attendanceRecordsRemoved+' linked attendance records removed.');
+      }else{
+        setEvents(prev=>prev.map(e=>e.id===activeEvent.id?{...e,status:nextStatus!}:e));
+        setQrToken('');setQrError('');
+        setMessage(nextStatus==='closed'?'Session closed. QR check-in is disabled.':'Session reopened.');
+      }
+    }catch(error){setMessage(error instanceof Error?error.message:'Session action failed.');}
+    finally{setBusy(false);}
+  }
+  async function beginSessionDeletion(){
+    if(!activeEvent)return;
+    const s=createSupabaseClient();if(!s)return;
+    const {data}=await s.auth.getSession();if(!data.session){setMessage('Please sign in again.');return;}
+    setBusy(true);setMessage('');
+    try{
+      const {count,error}=await s.from('attendance_records').select('id',{count:'exact',head:true}).eq('event_id',activeEvent.id);
+      if(error||count===null)throw new Error('Unable to verify attendance records.');
+      setDeleteRecordCount(count);setDeleteConfirmation('');setDeleteSessionOpen(true);
+    }catch(error){setMessage(error instanceof Error?error.message:'Could not check session.');}
+    finally{setBusy(false);}
+  }
   const [message,setMessage]=useState('');
   const [busy,setBusy]=useState(false);
   const [siteOrigin,setSiteOrigin]=useState('');
@@ -55,7 +93,7 @@ export default function AttendancePage(){
   async function loadContacts(){const s=createSupabaseClient();if(!s)return;const {data,error}=await s.from('contacts').select('*').order('full_name').limit(2000);if(!error)setContacts((data||[]) as ContactRecord[]);}
   async function loadRows(id:string){const s=createSupabaseClient();if(!s||!id){setRows([]);return;}const {data,error}=await s.from('attendance_records').select('id,contact_id,event_id,status,check_in_time,contact:contacts(full_name,email,phone_number,church_name)').eq('event_id',id).order('check_in_time',{ascending:false});if(error){setMessage('Could not load attendance records.');return;}setRows((data||[]) as unknown as Row[]);}
   useEffect(()=>{loadEvents();loadContacts();},[]);
-  useEffect(()=>{if(eventId)loadRows(eventId);},[eventId]);
+  useEffect(()=>{setDeleteSessionOpen(false);setDeleteConfirmation('');setDeleteRecordCount(null);if(eventId)loadRows(eventId);},[eventId]);
   const filtered=useMemo(()=>contacts.filter(c=>[c.full_name,c.email,c.phone_number,c.church_name].some(v=>v?.toLowerCase().includes(search.toLowerCase()))).slice(0,12),[contacts,search]);
   const recorded=new Set(rows.map(r=>r.contact_id));
   async function createEvent(e:FormEvent<HTMLFormElement>){e.preventDefault();const s=createSupabaseClient();if(!s)return;setBusy(true);setMessage('');const {data,error}=await s.from('attendance_events').insert({title:title.trim(),event_date:date,type,created_by:(await s.auth.getUser()).data.user?.id}).select().single();setBusy(false);if(error){setMessage(error.code==='23505'?'A session with this title already exists on that date.':error.message);return;}setEvents(prev=>[data as EventSession,...prev]);setEventId(data.id);setCreateOpen(false);setMessage('Attendance session created.');}
@@ -66,6 +104,7 @@ export default function AttendancePage(){
     {message&&<p className="notice" role="status">{message}</p>}
     {createOpen&&<section className="panel-card"><h2>New attendance session</h2><form className="contact-form" onSubmit={createEvent}><div className="field-group"><label htmlFor="session-title">Session name *</label><input id="session-title" required value={title} onChange={e=>setTitle(e.target.value)}/></div><div className="field-group"><label htmlFor="session-date">Date *</label><input id="session-date" type="date" required value={date} onChange={e=>setDate(e.target.value)}/></div><div className="field-group"><label htmlFor="session-type">Session type</label><select id="session-type" value={type} onChange={e=>setType(e.target.value as typeof type)}><option>Rehearsal</option><option>Service</option><option>Meeting</option></select></div><div className="form-actions"><button className="primary-button" disabled={busy}>{busy?'Creating…':'Create session'}</button></div></form></section>}
     <section className="panel-card session-select-panel"><div className="field-group session-select"><label htmlFor="session-select">Attendance session</label><select id="session-select" value={eventId} onChange={e=>setEventId(e.target.value)}><option value="">Select a session</option>{events.map(e=><option key={e.id} value={e.id}>{e.event_date} · {e.title} {e.status==='closed'?'(closed)':''}</option>)}</select></div>{activeEvent&&<div className="session-current"><span className={`status-pill ${activeEvent.status==='open'?'success':'neutral'}`}>{activeEvent.status==='open'?'Open':'Closed'}</span><strong>{activeEvent.title}</strong><span className="muted">{activeEvent.event_date} · {activeEvent.type}</span></div>}</section>
+    {activeEvent&&role==='super_admin'&&<section className="panel-card"><div className="panel-header"><div><p className="eyebrow">Super Admin</p><h2>Manage selected session</h2></div></div><p className="muted">Closing a session preserves attendance history and prevents QR check-ins. Reopening restores access for today's session. Deleting is permanent.</p><div className="inline-actions"><button className="secondary-button" disabled={busy} onClick={()=>void sessionAction('PATCH',activeEvent.status==='open'?'closed':'open')}>{activeEvent.status==='open'?'Close session':'Reopen session'}</button><button className="secondary-button" disabled={busy} onClick={()=>void beginSessionDeletion()}>Delete session</button></div>{deleteSessionOpen&&<div className="selected-contact" style={{marginTop:16}}><div><h3>Delete {activeEvent.title} — {activeEvent.event_date}?</h3><p className="notice" role="alert">This permanently deletes the session and {deleteRecordCount} linked attendance records, including Present, Late, Absent and Permission entries. This cannot be undone.</p><div className="field-group"><label htmlFor="delete-session-confirmation">Type DELETE SESSION to confirm</label><input id="delete-session-confirmation" autoComplete="off" value={deleteConfirmation} onChange={e=>setDeleteConfirmation(e.target.value)}/></div><div className="inline-actions"><button className="secondary-button" disabled={busy} onClick={()=>setDeleteSessionOpen(false)}>Cancel</button><button className="primary-button" disabled={busy||deleteConfirmation!=='DELETE SESSION'} onClick={()=>void sessionAction('DELETE')}>{busy?'Deleting…':'Permanently delete session'}</button></div></div></div>}</section>}
     {activeEvent&&siteOrigin&&<section className="panel-card"><div className="panel-header"><div><p className="eyebrow">Secure self check-in</p><h2>Rotating session QR code</h2></div><span className={`status-pill ${activeEvent.status==='open'?'success':'neutral'}`}>{activeEvent.status==='open'?'Open':'Closed'}</span></div><p className="muted">The QR code changes every minute. Attendees verify their registered email and must scan a fresh QR code to finish check-in. Do not share this QR code outside the venue.</p>{qrError&&<p className="notice" role="status">{qrError}</p>}{qrToken&&<div style={{display:'flex',gap:24,flexWrap:'wrap',alignItems:'center'}}><img alt={`Rotating QR code for ${activeEvent.title}`} width={220} height={220} style={{border:'1px solid #e2e8f0',borderRadius:12,padding:8,background:'white'}} src={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(siteOrigin+'/check-in/'+activeEvent.id+'?qr='+qrToken)}`}/><div><strong>{activeEvent.title}</strong><p className="muted">{activeEvent.event_date} · Code expires at {new Date(qrExpires).toLocaleTimeString('en-GB')}</p><p className="muted">Show this on the venue screen. It is not a permanent link.</p></div></div>}</section>}
     <section className="stats-grid four-stats" style={{gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))"}}><article className="stat-card"><span>Present</span><strong>{present}</strong><small>Checked in</small></article><article className="stat-card"><span>Late</span><strong>{late}</strong><small>Arrived late</small></article><article className="stat-card"><span>Absent</span><strong>{absent}</strong><small>Marked absent</small></article><article className="stat-card"><span>Permission</span><strong>{permission}</strong><small>Excused from rehearsal</small></article></section>
     <section className="panel-grid two-col">
