@@ -48,6 +48,23 @@ export async function POST(request: NextRequest) {
   try { body = await request.json(); } catch { return NextResponse.json({ error: 'Invalid request.' }, { status: 400 }); }
   const email = typeof body === 'object' && body !== null && 'email' in body && typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) return NextResponse.json({ error: 'Enter a valid email address.' }, { status: 400 });
+  // Existing accounts (including previously removed admins) must be restored,
+  // not invited again: Supabase refuses duplicate invitation emails.
+  for (let page = 1; page <= 50; page++) {
+    const { data: usersPage, error: listError } = await access.pair.admin.auth.admin.listUsers({ page, perPage: 100 });
+    if (listError) return NextResponse.json({ error: 'Could not check existing accounts.' }, { status: 500 });
+    const existing = usersPage.users.find(user => user.email?.trim().toLowerCase() === email);
+    if (existing) {
+      if (existing.app_metadata?.role === 'super_admin') return NextResponse.json({ error: 'This account is already a Super Admin.' }, { status: 409 });
+      if (existing.app_metadata?.role === 'admin') return NextResponse.json({ error: 'This person is already an administrator.' }, { status: 409 });
+      const { error: restoreError } = await access.pair.admin.auth.admin.updateUserById(existing.id, { app_metadata: { role: 'admin' } });
+      if (restoreError) return NextResponse.json({ error: 'Could not restore administrator access.' }, { status: 500 });
+      const { data: verified, error: verifyError } = await access.pair.admin.auth.admin.getUserById(existing.id);
+      if (verifyError || verified.user?.app_metadata?.role !== 'admin') return NextResponse.json({ error: 'Could not verify restored administrator access.' }, { status: 500 });
+      return NextResponse.json({ admin: { id: existing.id, email, role: 'admin' }, message: 'Administrator access restored. They can sign in with their existing password, or use Forgot password.', restored: true }, { headers: { 'Cache-Control': 'no-store' } });
+    }
+    if (usersPage.users.length < 100) break;
+  }
   // Only the admin role can be granted from this endpoint. No privilege escalation to Super Admin.
   const { data, error } = await access.pair.admin.auth.admin.inviteUserByEmail(email, { redirectTo: new URL('/reset-password/update', request.url).origin + '/reset-password/update' });
   if (error || !data.user) return NextResponse.json({ error: 'Could not invite this user. They may already have an account or email invitations may not be configured.' }, { status: 400 });
