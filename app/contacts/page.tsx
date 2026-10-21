@@ -9,6 +9,7 @@ const blank: ContactDraft = { full_name:'', email:'', phone_number:'', singer_or
 export default function ContactsPage() {
   const [contacts,setContacts] = useState<ContactRecord[]>([]);
   const [search,setSearch] = useState('');
+  const [memberType,setMemberType]=useState<'All'|'Singer'|'Musician'>('All');
   const [draft,setDraft] = useState<ContactDraft>(blank);
   const [editing,setEditing] = useState<string|null>(null);
   const [showForm,setShowForm] = useState(false);
@@ -45,7 +46,7 @@ export default function ContactsPage() {
     setContacts((data||[]) as ContactRecord[]);
   }
   useEffect(()=>{load();},[]);
-  const filtered=useMemo(()=>contacts.filter(c=>[c.full_name,c.email,c.phone_number,c.church_name,c.part_or_instrument,c.singer_or_musician].some(v=>v?.toLowerCase().includes(search.toLowerCase()))),[contacts,search]);
+  const filtered=useMemo(()=>contacts.filter(c=>(memberType==='All'||c.singer_or_musician===memberType)&&[c.full_name,c.email,c.phone_number,c.church_name,c.part_or_instrument,c.singer_or_musician].some(v=>v?.toLowerCase().includes(search.toLowerCase()))),[contacts,search,memberType]);
 
   function startAdd(){setDraft(blank);setEditing(null);setShowForm(true);setMessage('');}
   function startEdit(c:ContactRecord){setDraft({full_name:c.full_name,email:c.email||'',phone_number:c.phone_number||'',singer_or_musician:c.singer_or_musician,part_or_instrument:c.part_or_instrument||'',church_name:c.church_name||'',church_letter_submitted:c.church_letter_submitted, registered_at:c.registered_at||''});setEditing(c.id);setShowForm(true);setMessage('');}
@@ -93,6 +94,7 @@ export default function ContactsPage() {
   return <div className="page-shell">
     <header className="page-header"><div><p className="eyebrow">Directory</p><h1>Contacts</h1><p className="page-description">Manage registered singers, musicians and their details.</p></div><div className="inline-actions"><button className="secondary-button" onClick={()=>{setImportOpen(!importOpen);setMessage('');}}>Import CSV</button><button className="primary-button" onClick={startAdd}>Add contact</button>{superAdmin&&<button className="secondary-button" disabled={busy||!contacts.length} onClick={()=>{setDeleteAllOpen(true);setDeleteConfirm('');}}>Delete all contacts</button>}</div></header>
     {message&&<p className="notice" role="status">{message}</p>}
+    <section className="panel-card"><div className="inline-actions">{(['All','Singer','Musician'] as const).map(t=><button key={t} type="button" className={memberType===t?'primary-button':'secondary-button'} onClick={()=>setMemberType(t)}>{t==='All'?'All contacts':t==='Singer'?'Singers':'Musicians'} ({t==='All'?contacts.length:contacts.filter(c=>c.singer_or_musician===t).length})</button>)}</div></section>
     {deleteTarget&&<section className="panel-card"><h2>Delete {deleteTarget.full_name}?</h2><p className="muted">This permanently deletes the contact and their linked attendance history. This cannot be undone.</p><div className="inline-actions"><button className="secondary-button" disabled={busy} onClick={()=>setDeleteTarget(null)}>Cancel</button><button className="primary-button" disabled={busy} onClick={()=>void deleteContacts('single')}>{busy?'Deleting…':'Permanently delete contact'}</button></div></section>}
     {deleteAllOpen&&<section className="panel-card"><h2>Delete all {contacts.length} contacts?</h2><p className="notice" role="alert">This permanently deletes every contact and all attendance records linked to those contacts. Existing sessions and administrator accounts will remain. This action cannot be undone. Export your data before proceeding.</p><div className="field-group"><label htmlFor="delete-all-confirm">Type DELETE ALL CONTACTS to confirm</label><input id="delete-all-confirm" autoComplete="off" value={deleteConfirm} onChange={e=>setDeleteConfirm(e.target.value)}/></div><div className="inline-actions"><button className="secondary-button" disabled={busy} onClick={()=>{setDeleteAllOpen(false);setDeleteConfirm('');}}>Cancel</button><button className="primary-button" disabled={busy||deleteConfirm!=='DELETE ALL CONTACTS'} onClick={()=>void deleteContacts('all')}>{busy?'Deleting…':`Permanently delete ${contacts.length} contacts`}</button></div></section>}
     {showForm&&<section className="panel-card"><div className="panel-header"><div><p className="eyebrow">{editing?'Update record':'New record'}</p><h2>{editing?'Edit contact':'Add a contact'}</h2></div><button className="secondary-button" onClick={()=>setShowForm(false)}>Cancel</button></div>
