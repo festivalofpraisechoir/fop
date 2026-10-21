@@ -17,7 +17,9 @@ export async function GET(request: NextRequest) {
   if (!/^[0-9a-f-]{36}$/i.test(eventId)) return NextResponse.json({ error: 'Invalid session.' }, { status: 400 });
   const { data: event } = await supabase.from('attendance_events').select('id,event_date,status').eq('id', eventId).maybeSingle();
   const today = londonDate();
-  if (!event || event.status !== 'open' || event.event_date !== today) return NextResponse.json({ error: 'Only an open session scheduled for today can show a QR code.' }, { status: 400 });
+  if (!event) return NextResponse.json({ error: 'Session not found or inaccessible.' }, { status: 404 });
+  if (event.status !== 'open') return NextResponse.json({ error: 'This session is closed.' }, { status: 400 });
+  if (String(event.event_date).slice(0,10) !== today) return NextResponse.json({ error: `Session date ${event.event_date} does not match today's London date ${today}.` }, { status: 400 });
   try { return NextResponse.json(currentQr(eventId), { headers: { 'Cache-Control': 'no-store' } }); }
   catch { return NextResponse.json({ error: 'QR signing secret is not configured.' }, { status: 503 }); }
 }
