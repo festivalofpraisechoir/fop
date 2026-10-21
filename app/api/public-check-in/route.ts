@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { londonDate } from '@/lib/london-date';
 import { validQr } from '@/lib/attendance-qr';
 
 export const dynamic = 'force-dynamic';
@@ -23,7 +24,7 @@ export async function POST(request: NextRequest) {
   const admin = createClient(url, secret, { auth: { persistSession: false, autoRefreshToken: false } });
   const { data: event } = await admin.from('attendance_events').select('id,title,event_date,status').eq('id',body.eventId).maybeSingle();
   if (!event || event.status !== 'open') return NextResponse.json({ error: 'This attendance session is not open.' }, { status: 400 });
-  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+  const today = londonDate();
   if (event.event_date !== today) return NextResponse.json({ error: 'This QR code is not for today’s session.' }, { status: 400 });
   const { data: contacts, error: contactError } = await admin.from('contacts').select('id,full_name').ilike('email',user.email.trim()).limit(2);
   if (contactError) return NextResponse.json({ error: 'Could not find your registration.' }, { status: 500 });
