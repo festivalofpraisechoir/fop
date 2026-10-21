@@ -51,7 +51,7 @@ export default function AdminManagementPage() {
       const body = await response.json();
       if (!response.ok) throw new Error(body.error || 'Could not invite administrator.');
       setEmail('');
-      setSuccess('Invitation sent. The new administrator must accept the email invitation and set their password before signing in.');
+      setSuccess(body.message || (body.restored ? 'Administrator access restored. They can sign in using their existing password.' : 'Invitation sent. The new administrator must accept the email invitation and set their password before signing in.'));
       await load();
     } catch (e) { setError(e instanceof Error ? e.message : 'Could not invite administrator.'); }
     finally { setSaving(false); }
@@ -74,11 +74,11 @@ export default function AdminManagementPage() {
   return <div className="page-shell">
     <header className="page-header"><div><p className="eyebrow">Festival of Praise / Administration</p><h1>Manage admins</h1><p className="page-description">Invite authorised team members to help manage contacts and attendance.</p></div></header>
     <section className="panel-card">
-      <div className="panel-header"><h2>Invite an administrator</h2></div>
-      <p className="muted">An invitation email will be sent to the new admin. This grants the Admin role only, not Super Admin access.</p>
+      <div className="panel-header"><h2>Add or restore an administrator</h2></div>
+      <p className="muted">Invite a new administrator or restore access for someone previously removed. Existing accounts can sign in with their current password. This grants the Admin role only.</p>
       <form onSubmit={invite} className="contact-form">
         <div className="field-group"><label htmlFor="admin-email">Email address</label><input id="admin-email" type="email" required autoComplete="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="admin@example.com" /></div>
-        <div className="form-actions"><button className="primary-button" type="submit" disabled={saving}>{saving ? 'Sending invitation…' : 'Invite admin'}</button></div>
+        <div className="form-actions"><button className="primary-button" type="submit" disabled={saving}>{saving ? 'Saving…' : 'Add / restore admin'}</button></div>
       </form>
       {error && <p className="notice error-notice" role="alert">{error}</p>}
       {success && <p className="notice" role="status">{success}</p>}
