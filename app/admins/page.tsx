@@ -14,6 +14,7 @@ export default function AdminManagementPage() {
   const [success, setSuccess] = useState('');
   const [removeTarget,setRemoveTarget]=useState<Admin|null>(null);
   const [activation,setActivation]=useState<{email:string;code:string}|null>(null);
+  const [copyStatus,setCopyStatus]=useState('');
 
   const token = useCallback(async () => {
     const supabase = createSupabaseClient();
@@ -52,7 +53,7 @@ export default function AdminManagementPage() {
       const body = await response.json();
       if (!response.ok) throw new Error(body.error || 'Could not invite administrator.');
       setEmail('');
-      if(body.activationCode)setActivation({email:body.admin.email,code:body.activationCode});
+      if(body.activationCode){setActivation({email:body.admin.email,code:body.activationCode});setCopyStatus('');}
       setSuccess(body.message || (body.restored ? 'Administrator access restored. They can sign in using their existing password.' : 'Invitation sent. The new administrator must accept the email invitation and set their password before signing in.'));
       await load();
     } catch (e) { setError(e instanceof Error ? e.message : 'Could not invite administrator.'); }
@@ -64,8 +65,21 @@ export default function AdminManagementPage() {
     try{const accessToken=await token();if(!accessToken)throw new Error('Sign in again.');
       const response=await fetch('/api/admins',{method:'PATCH',headers:{'Content-Type':'application/json',Authorization:'Bearer '+accessToken},body:JSON.stringify({id:a.id})});
       const body=await response.json();if(!response.ok)throw new Error(body.error||'Could not generate code.');
-      setActivation({email:a.email,code:body.activationCode});
+      setActivation({email:a.email,code:body.activationCode});setCopyStatus('');
     }catch(e){setError(e instanceof Error?e.message:'Could not generate code.');}finally{setSaving(false);}
+  }
+
+  async function copyActivation() {
+    if (!activation) return;
+    const details = ['FOP Admin Activation', 'https://fop-festival-of-praise.vercel.app/activate-admin', 'Email: ' + activation.email, 'Activation code: ' + activation.code, 'Expires 15 minutes after generation.'].join('\\n');
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error('Clipboard API unavailable');
+      await navigator.clipboard.writeText(details);
+      setCopyStatus('Copied! Paste into WhatsApp.');
+    } catch {
+      // Some browsers deny clipboard access. Provide a selectable field for manual copy.
+      setCopyStatus('Automatic copying is blocked. Select the details below and copy them manually.');
+    }
   }
 
   async function removeAdmin() {
@@ -91,7 +105,7 @@ export default function AdminManagementPage() {
         <div className="field-group"><label htmlFor="admin-email">Email address</label><input id="admin-email" type="email" required autoComplete="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="admin@example.com" /></div>
         <div className="form-actions"><button className="primary-button" type="submit" disabled={saving}>{saving ? 'Saving…' : 'Add / restore admin'}</button></div>
       </form>
-      {activation&&<div className="notice" role="status"><strong>One-time activation code for {activation.email}</strong><p style={{overflowWrap:'anywhere',fontFamily:'monospace'}}>{activation.code}</p><p>Expires in 15 minutes. Share privately with this administrator along with <a href="/activate-admin">the activation page</a>. The code is shown here only until you dismiss it.</p><button type="button" className="secondary-button" onClick={()=>void navigator.clipboard.writeText('https://fop-festival-of-praise.vercel.app/activate-admin\\nEmail: '+activation.email+'\\nActivation code: '+activation.code)}>Copy activation details</button> <button type="button" className="secondary-button" onClick={()=>setActivation(null)}>Dismiss</button></div>}
+      {activation&&<div className="notice" role="status"><strong>One-time activation code for {activation.email}</strong><p style={{overflowWrap:'anywhere',fontFamily:'monospace'}}>{activation.code}</p><p>Expires in 15 minutes. Share privately with this administrator along with <a href="/activate-admin">the activation page</a>. The code is shown here only until you dismiss it.</p><button type="button" className="secondary-button" onClick={()=>void copyActivation()}>Copy activation details</button>{copyStatus&&<p role="status">{copyStatus}</p>}<textarea readOnly aria-label="Activation details for manual copying" rows={5} style={{width:'100%',marginTop:8}} value={['FOP Admin Activation','https://fop-festival-of-praise.vercel.app/activate-admin','Email: '+activation.email,'Activation code: '+activation.code,'Expires 15 minutes after generation.'].join('\\n')} onClick={e=>e.currentTarget.select()} /> <button type="button" className="secondary-button" onClick={()=>setActivation(null)}>Dismiss</button></div>}
       {error && <p className="notice error-notice" role="alert">{error}</p>}
       {success && <p className="notice" role="status">{success}</p>}
     </section>
