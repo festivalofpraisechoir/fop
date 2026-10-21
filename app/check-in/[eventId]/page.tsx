@@ -65,7 +65,7 @@ export default function PublicCheckIn() {
     if (!supabase) { setError('Check-in is unavailable.'); setBusy(false); return; }
     const { error } = await supabase.auth.signInWithOtp({ email: email.trim().toLowerCase(), options: { shouldCreateUser: true } });
     setBusy(false);
-    if (error) setError('We could not send a verification code. Please ask an administrator for help.');
+    if (error) setError(error.status===429 || /rate limit/i.test(error.message) ? 'Too many verification emails have been requested. Email sending is temporarily limited. Please wait before trying again or ask an administrator to record your attendance.' : 'We could not send a verification code. Please ask an administrator for help.');
     else setStep('code');
   }
 
