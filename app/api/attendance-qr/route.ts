@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
   if (!user || !['admin', 'super_admin'].includes(String(user.app_metadata?.role))) return NextResponse.json({ error: 'Not authorised.' }, { status: 403 });
   const eventId = request.nextUrl.searchParams.get('eventId') || '';
   if (!/^[0-9a-f-]{36}$/i.test(eventId)) return NextResponse.json({ error: 'Invalid session.' }, { status: 400 });
-  const { data: event } = await supabase.from('attendance_events').select('id,event_date,status').eq('id', eventId).maybeSingle();
+  // User identity and admin role were verified above. Use the server-side service role\n  // for the session lookup because the anonymous client has no user RLS context.\n  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;\n  if (!serviceKey) return NextResponse.json({ error: 'Session lookup is not configured.' }, { status: 503 });\n  const admin = createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });\n  const { data: event, error: eventError } = await admin.from('attendance_events').select('id,event_date,status').eq('id', eventId).maybeSingle();\n  if (eventError) return NextResponse.json({ error: 'Could not load the attendance session.' }, { status: 500 });
   const today = londonDate();
   if (!event) return NextResponse.json({ error: 'Session not found or inaccessible.' }, { status: 404 });
   if (event.status !== 'open') return NextResponse.json({ error: 'This session is closed.' }, { status: 400 });
