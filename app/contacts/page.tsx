@@ -17,6 +17,25 @@ export default function ContactsPage() {
   const [csvRows,setCsvRows] = useState<ContactDraft[]|null>(null);
   const [csvName,setCsvName] = useState('');
   const [importOpen,setImportOpen] = useState(false);
+  const [superAdmin,setSuperAdmin] = useState(false);
+  const [deleteTarget,setDeleteTarget] = useState<ContactRecord|null>(null);
+  const [deleteAllOpen,setDeleteAllOpen] = useState(false);
+  const [deleteConfirm,setDeleteConfirm] = useState('');
+  useEffect(()=>{const s=createSupabaseClient();if(!s)return;void s.auth.getUser().then(({data})=>setSuperAdmin(data.user?.app_metadata?.role==='super_admin'));},[]);
+  async function deleteContacts(mode:'single'|'all'){
+    const s=createSupabaseClient();if(!s)return;
+    const {data}=await s.auth.getSession();if(!data.session){setMessage('Please sign in again.');return;}
+    setBusy(true);setMessage('');
+    try{
+      const response=await fetch('/api/contacts/delete',{method:'DELETE',headers:{'Content-Type':'application/json',Authorization:'Bearer '+data.session.access_token},body:JSON.stringify(mode==='single'?{mode,id:deleteTarget?.id,confirmation:'DELETE'}:{mode,confirmation:deleteConfirm,expectedCount:contacts.length})});
+      const body=await response.json();
+      if(!response.ok)throw new Error(body.error||'Could not delete contacts.');
+      setDeleteTarget(null);setDeleteAllOpen(false);setDeleteConfirm('');
+      await load();
+      setMessage(mode==='all'?`Deleted ${body.deleted} contacts. Their linked attendance records were also removed.`:'Contact deleted. Linked attendance records were also removed.');
+    }catch(e){setMessage(e instanceof Error?e.message:'Deletion failed.');}
+    finally{setBusy(false);}
+  }
 
   async function load() {
     const supabase=createSupabaseClient();
@@ -72,8 +91,10 @@ export default function ContactsPage() {
     setMessage(`Imported ${valid.length} contacts; skipped ${csvRows.length-valid.length} possible duplicates.`);setCsvRows(null);setImportOpen(false);await load();
   }
   return <div className="page-shell">
-    <header className="page-header"><div><p className="eyebrow">Directory</p><h1>Contacts</h1><p className="page-description">Manage registered singers, musicians and their details.</p></div><div className="inline-actions"><button className="secondary-button" onClick={()=>{setImportOpen(!importOpen);setMessage('');}}>Import CSV</button><button className="primary-button" onClick={startAdd}>Add contact</button></div></header>
+    <header className="page-header"><div><p className="eyebrow">Directory</p><h1>Contacts</h1><p className="page-description">Manage registered singers, musicians and their details.</p></div><div className="inline-actions"><button className="secondary-button" onClick={()=>{setImportOpen(!importOpen);setMessage('');}}>Import CSV</button><button className="primary-button" onClick={startAdd}>Add contact</button>{superAdmin&&<button className="secondary-button" disabled={busy||!contacts.length} onClick={()=>{setDeleteAllOpen(true);setDeleteConfirm('');}}>Delete all contacts</button>}</div></header>
     {message&&<p className="notice" role="status">{message}</p>}
+    {deleteTarget&&<section className="panel-card"><h2>Delete {deleteTarget.full_name}?</h2><p className="muted">This permanently deletes the contact and their linked attendance history. This cannot be undone.</p><div className="inline-actions"><button className="secondary-button" disabled={busy} onClick={()=>setDeleteTarget(null)}>Cancel</button><button className="primary-button" disabled={busy} onClick={()=>void deleteContacts('single')}>{busy?'Deleting…':'Permanently delete contact'}</button></div></section>}
+    {deleteAllOpen&&<section className="panel-card"><h2>Delete all {contacts.length} contacts?</h2><p className="notice" role="alert">This permanently deletes every contact and all attendance records linked to those contacts. Existing sessions and administrator accounts will remain. This action cannot be undone. Export your data before proceeding.</p><div className="field-group"><label htmlFor="delete-all-confirm">Type DELETE ALL CONTACTS to confirm</label><input id="delete-all-confirm" autoComplete="off" value={deleteConfirm} onChange={e=>setDeleteConfirm(e.target.value)}/></div><div className="inline-actions"><button className="secondary-button" disabled={busy} onClick={()=>{setDeleteAllOpen(false);setDeleteConfirm('');}}>Cancel</button><button className="primary-button" disabled={busy||deleteConfirm!=='DELETE ALL CONTACTS'} onClick={()=>void deleteContacts('all')}>{busy?'Deleting…':`Permanently delete ${contacts.length} contacts`}</button></div></section>}
     {showForm&&<section className="panel-card"><div className="panel-header"><div><p className="eyebrow">{editing?'Update record':'New record'}</p><h2>{editing?'Edit contact':'Add a contact'}</h2></div><button className="secondary-button" onClick={()=>setShowForm(false)}>Cancel</button></div>
       <form onSubmit={saveContact} className="contact-form">
         <div className="field-group"><label htmlFor="full_name">Full name *</label><input id="full_name" required value={draft.full_name} onChange={e=>setDraft({...draft,full_name:e.target.value})}/></div>
@@ -88,7 +109,7 @@ export default function ContactsPage() {
     </section>}
     {importOpen&&<section className="panel-card"><div className="panel-header"><div><p className="eyebrow">Bulk import</p><h2>Import registered contacts</h2></div><button className="secondary-button" onClick={()=>{setImportOpen(false);setCsvRows(null);}}>Close</button></div><p className="muted">Upload a CSV with column headings such as Name, Email, Phone number, Singer or Musician, Voice part / Instrument, Church and Church letter submitted. Review the detected rows before saving.</p><div className="field-group"><label htmlFor="csv-file">CSV file</label><input id="csv-file" type="file" accept=".csv,text/csv" onChange={handleFile}/></div>{csvRows&&<><p className="notice">{csvName}: {csvRows.length} rows detected. {csvRows.filter(r=>r.full_name).length} rows have a name. Potential duplicates are checked against existing email addresses and phone numbers.</p><div className="table-wrap"><table><thead><tr><th>Name</th><th>Email</th><th>Type</th><th>Part / instrument</th><th>Church</th></tr></thead><tbody>{csvRows.slice(0,8).map((r,i)=><tr key={i}><td>{r.full_name}</td><td>{r.email}</td><td>{r.singer_or_musician}</td><td>{r.part_or_instrument}</td><td>{r.church_name}</td></tr>)}</tbody></table></div>{csvRows.length>8&&<p className="muted">Showing the first 8 rows for review.</p>}<div className="form-actions"><button className="primary-button" disabled={busy||!csvRows.length} onClick={importCsv}>{busy?'Importing…':`Import ${csvRows.length} reviewed rows`}</button></div></>}</section>}
     <section className="panel-card"><div className="toolbar-row"><div><h2>Registered contacts <span className="count-label">{filtered.length}</span></h2><p className="muted">Search the directory to find a member.</p></div><input className="search-input" aria-label="Search contacts" placeholder="Search name, email, phone or church" value={search} onChange={e=>setSearch(e.target.value)}/></div>
-      <div className="table-wrap"><table><thead><tr><th>Name</th><th>Registered</th><th>Email / phone</th><th>Type</th><th>Voice part / instrument</th><th>Church</th><th>Church letter</th><th></th></tr></thead><tbody>{filtered.map(c=><tr key={c.id}><td><strong>{c.full_name}</strong></td><td>{c.registered_at||'—'}</td><td><span>{c.email||'—'}</span><small className="table-subtext">{c.phone_number||'—'}</small></td><td>{c.singer_or_musician}</td><td>{c.part_or_instrument||'—'}</td><td>{c.church_name||'—'}</td><td><span className={`status-pill ${c.church_letter_submitted?'success':'neutral'}`}>{c.church_letter_submitted?'Submitted':'Outstanding'}</span></td><td><button className="table-action" onClick={()=>startEdit(c)}>Edit</button></td></tr>)}</tbody></table>{!filtered.length&&<div className="empty-state">{search?'No contacts match your search.':'No contacts have been added yet. Add a contact or import a CSV roster.'}</div>}</div>
+      <div className="table-wrap"><table><thead><tr><th>Name</th><th>Registered</th><th>Email / phone</th><th>Type</th><th>Voice part / instrument</th><th>Church</th><th>Church letter</th><th></th></tr></thead><tbody>{filtered.map(c=><tr key={c.id}><td><strong>{c.full_name}</strong></td><td>{c.registered_at||'—'}</td><td><span>{c.email||'—'}</span><small className="table-subtext">{c.phone_number||'—'}</small></td><td>{c.singer_or_musician}</td><td>{c.part_or_instrument||'—'}</td><td>{c.church_name||'—'}</td><td><span className={`status-pill ${c.church_letter_submitted?'success':'neutral'}`}>{c.church_letter_submitted?'Submitted':'Outstanding'}</span></td><td><button className="table-action" onClick={()=>startEdit(c)}>Edit</button>{superAdmin&&<button className="table-action" disabled={busy} onClick={()=>setDeleteTarget(c)}>Delete</button>}</td></tr>)}</tbody></table>{!filtered.length&&<div className="empty-state">{search?'No contacts match your search.':'No contacts have been added yet. Add a contact or import a CSV roster.'}</div>}</div>
     </section>
   </div>;
 }
