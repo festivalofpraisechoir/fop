@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { createSupabaseClient, type ContactRecord, type EventSession } from '@/lib/supabase';
+import { londonDate } from '@/lib/london-date';
 
 type Row = { id:string; contact_id:string; event_id:string; status:'Present'|'Late'|'Absent'; check_in_time:string|null; contact?:{full_name:string;email:string|null;phone_number:string|null;church_name:string|null}|null };
 export default function AttendancePage(){
@@ -13,7 +14,7 @@ export default function AttendancePage(){
   const [selected,setSelected]=useState<ContactRecord|null>(null);
   const [role,setRole]=useState('admin');
   const [title,setTitle]=useState('Rehearsal');
-  const [date,setDate]=useState(new Date().toLocaleDateString('en-CA'));
+  const [date,setDate]=useState(londonDate());
   const [type,setType]=useState<'Rehearsal'|'Service'|'Meeting'>('Rehearsal');
   const [createOpen,setCreateOpen]=useState(false);
   const [message,setMessage]=useState('');
