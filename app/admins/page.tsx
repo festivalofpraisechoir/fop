@@ -12,6 +12,7 @@ export default function AdminManagementPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [removeTarget,setRemoveTarget]=useState<Admin|null>(null);
 
   const token = useCallback(async () => {
     const supabase = createSupabaseClient();
@@ -56,6 +57,20 @@ export default function AdminManagementPage() {
     finally { setSaving(false); }
   }
 
+  async function removeAdmin() {
+    if(!removeTarget)return;
+    setSaving(true);setError('');setSuccess('');
+    try {
+      const accessToken=await token();
+      if(!accessToken)throw new Error('Sign in again to manage administrators.');
+      const response=await fetch('/api/admins',{method:'DELETE',headers:{'Content-Type':'application/json',Authorization:'Bearer '+accessToken},body:JSON.stringify({id:removeTarget.id,confirmation:'REMOVE ADMIN'})});
+      const body=await response.json();
+      if(!response.ok)throw new Error(body.error||'Could not remove admin.');
+      setRemoveTarget(null);await load();setSuccess('Administrator access removed. Their user account was not deleted.');
+    }catch(e){setError(e instanceof Error?e.message:'Could not remove admin.');}
+    finally{setSaving(false);}
+  }
+
   return <div className="page-shell">
     <header className="page-header"><div><p className="eyebrow">Festival of Praise / Administration</p><h1>Manage admins</h1><p className="page-description">Invite authorised team members to help manage contacts and attendance.</p></div></header>
     <section className="panel-card">
@@ -68,9 +83,10 @@ export default function AdminManagementPage() {
       {error && <p className="notice error-notice" role="alert">{error}</p>}
       {success && <p className="notice" role="status">{success}</p>}
     </section>
+    {removeTarget&&<section className="panel-card"><h2>Remove administrator access?</h2><p>Remove <strong>{removeTarget.email}</strong> as an administrator? They will no longer be able to manage FOP data. Their user account and attendance records will be retained.</p><div className="inline-actions"><button className="secondary-button" disabled={saving} onClick={()=>setRemoveTarget(null)}>Cancel</button><button className="primary-button" disabled={saving} onClick={()=>void removeAdmin()}>{saving?'Removing…':'Confirm remove admin'}</button></div></section>}
     <section className="panel-card">
       <div className="panel-header"><h2>Authorised administrators <span className="count-label">{admins.length}</span></h2><button type="button" className="secondary-button" onClick={()=>void load()} disabled={loading}>Refresh</button></div>
-      {loading ? <p className="muted">Loading administrators…</p> : admins.length ? <div className="table-wrap"><table><thead><tr><th>Email</th><th>Role</th><th>Added</th></tr></thead><tbody>{admins.map(a=><tr key={a.id}><td><strong>{a.email}</strong></td><td><span className="status-pill neutral">{a.role === 'super_admin' ? 'Super Admin' : 'Admin'}</span></td><td>{new Date(a.created_at).toLocaleDateString('en-GB')}</td></tr>)}</tbody></table></div> : <p className="empty-state">No administrators found.</p>}
+      {loading ? <p className="muted">Loading administrators…</p> : admins.length ? <div className="table-wrap"><table><thead><tr><th>Email</th><th>Role</th><th>Added</th><th>Actions</th></tr></thead><tbody>{admins.map(a=><tr key={a.id}><td><strong>{a.email}</strong></td><td><span className="status-pill neutral">{a.role === 'super_admin' ? 'Super Admin' : 'Admin'}</span></td><td>{new Date(a.created_at).toLocaleDateString('en-GB')}</td><td>{a.role==='admin'?<button className="table-action" disabled={saving} onClick={()=>setRemoveTarget(a)}>Remove admin</button>:<span className="muted">Protected</span>}</td></tr>)}</tbody></table></div> : <p className="empty-state">No administrators found.</p>}
     </section>
   </div>;
 }
