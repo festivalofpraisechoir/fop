@@ -20,8 +20,9 @@ export function validQr(eventId: string, token: string, now = Date.now()): boole
   if (extra.length || !/^\d{9,12}$/.test(slotText || '') || !/^[a-f0-9]{64}$/.test(sig || '')) return false;
   const slot = Number(slotText);
   const current = Math.floor(now / QR_INTERVAL_MS);
-  // Current and previous slot only: a captured QR expires within two minutes.
-  if (slot < current - 1 || slot > current) return false;
+  // Give a member up to ten minutes after scanning to complete the form.
+  // The QR display still rotates every minute, and attendance must be for an open session today.
+  if (slot < current - 10 || slot > current) return false;
   const expected = Buffer.from(signature(eventId, slot), 'hex');
   return timingSafeEqual(expected, Buffer.from(sig, 'hex'));
 }
