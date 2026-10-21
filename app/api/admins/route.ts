@@ -73,10 +73,12 @@ export async function DELETE(request: NextRequest) {
   if (lookupError || !target) return NextResponse.json({ error: 'Administrator not found.' }, { status: 404 });
   if (target.app_metadata?.role !== 'admin') return NextResponse.json({ error: 'Only regular Admin accounts can be removed here. Super Admin access is protected.' }, { status: 403 });
   // Revoke administrator privileges without deleting the user's identity or attendance data.
-  const metadata = { ...target.app_metadata };
-  delete metadata.role;
-  const { error: updateError } = await access.pair.admin.auth.admin.updateUserById(target.id, { app_metadata: metadata });
+  // Supabase merges app_metadata instead of replacing it; omitting role leaves the old admin role intact.
+  // Explicitly null the role to revoke privileges, while retaining the account and other metadata.
+  const { error: updateError } = await access.pair.admin.auth.admin.updateUserById(target.id, { app_metadata: { role: null } });
   if (updateError) return NextResponse.json({ error: 'Could not remove administrator access.' }, { status: 500 });
+  const { data: verified, error: verifyError } = await access.pair.admin.auth.admin.getUserById(target.id);
+  if (verifyError || verified.user?.app_metadata?.role === 'admin') return NextResponse.json({ error: 'Could not verify administrator access was removed. Please retry.' }, { status: 500 });
   // The middleware and privileged APIs re-fetch the user from Supabase Auth
   // and enforce the current app_metadata role on every protected request.
   // Supabase admin.signOut expects a user's access JWT, not their user ID;
