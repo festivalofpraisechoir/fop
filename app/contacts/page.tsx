@@ -18,19 +18,6 @@ export default function ContactsPage() {
   const [csvName,setCsvName] = useState('');
   const [importOpen,setImportOpen] = useState(false);
   const [superAdmin,setSuperAdmin] = useState(false);
-  const [sharedPin,setSharedPin]=useState<string|null>(null);
-  async function resetSharedPin(){
-    if(!window.confirm('Generate a new shared PIN? The previous PIN will stop working for everyone.'))return;
-    const s=createSupabaseClient();if(!s)return;
-    const {data}=await s.auth.getSession();if(!data.session){setMessage('Please sign in again.');return;}
-    setBusy(true);setMessage('');setSharedPin(null);
-    try{
-      const response=await fetch('/api/shared-pin',{method:'POST',headers:{Authorization:'Bearer '+data.session.access_token}});
-      const body=await response.json();if(!response.ok)throw new Error(body.error||'Could not create shared PIN.');
-      setSharedPin(body.pin);setMessage('Shared choir PIN updated. Share it only with members who are attending.');
-    }catch(e){setMessage(e instanceof Error?e.message:'Could not create shared PIN.');}
-    finally{setBusy(false);}
-  }
   const [deleteTarget,setDeleteTarget] = useState<ContactRecord|null>(null);
   const [deleteAllOpen,setDeleteAllOpen] = useState(false);
   const [deleteConfirm,setDeleteConfirm] = useState('');
@@ -106,7 +93,6 @@ export default function ContactsPage() {
   return <div className="page-shell">
     <header className="page-header"><div><p className="eyebrow">Directory</p><h1>Contacts</h1><p className="page-description">Manage registered singers, musicians and their details.</p></div><div className="inline-actions"><button className="secondary-button" onClick={()=>{setImportOpen(!importOpen);setMessage('');}}>Import CSV</button><button className="primary-button" onClick={startAdd}>Add contact</button>{superAdmin&&<button className="secondary-button" disabled={busy||!contacts.length} onClick={()=>{setDeleteAllOpen(true);setDeleteConfirm('');}}>Delete all contacts</button>}</div></header>
     {message&&<p className="notice" role="status">{message}</p>}
-    {superAdmin&&<section className="panel-card"><h2>Shared choir check-in PIN</h2><p className="muted">One six-digit PIN works for all registered members. Generate it once and share it with the choir. Regenerating it invalidates the old PIN.</p><button className="primary-button" disabled={busy} onClick={()=>void resetSharedPin()}>{busy?'Please wait…':'Generate / reset shared PIN'}</button>{sharedPin&&<div role="status"><p>New shared PIN (shown only now):</p><p style={{fontSize:28,fontWeight:700,letterSpacing:5}}>{sharedPin}</p><button className="secondary-button" onClick={()=>setSharedPin(null)}>Hide PIN</button></div>}</section>}
     {deleteTarget&&<section className="panel-card"><h2>Delete {deleteTarget.full_name}?</h2><p className="muted">This permanently deletes the contact and their linked attendance history. This cannot be undone.</p><div className="inline-actions"><button className="secondary-button" disabled={busy} onClick={()=>setDeleteTarget(null)}>Cancel</button><button className="primary-button" disabled={busy} onClick={()=>void deleteContacts('single')}>{busy?'Deleting…':'Permanently delete contact'}</button></div></section>}
     {deleteAllOpen&&<section className="panel-card"><h2>Delete all {contacts.length} contacts?</h2><p className="notice" role="alert">This permanently deletes every contact and all attendance records linked to those contacts. Existing sessions and administrator accounts will remain. This action cannot be undone. Export your data before proceeding.</p><div className="field-group"><label htmlFor="delete-all-confirm">Type DELETE ALL CONTACTS to confirm</label><input id="delete-all-confirm" autoComplete="off" value={deleteConfirm} onChange={e=>setDeleteConfirm(e.target.value)}/></div><div className="inline-actions"><button className="secondary-button" disabled={busy} onClick={()=>{setDeleteAllOpen(false);setDeleteConfirm('');}}>Cancel</button><button className="primary-button" disabled={busy||deleteConfirm!=='DELETE ALL CONTACTS'} onClick={()=>void deleteContacts('all')}>{busy?'Deleting…':`Permanently delete ${contacts.length} contacts`}</button></div></section>}
     {showForm&&<section className="panel-card"><div className="panel-header"><div><p className="eyebrow">{editing?'Update record':'New record'}</p><h2>{editing?'Edit contact':'Add a contact'}</h2></div><button className="secondary-button" onClick={()=>setShowForm(false)}>Cancel</button></div>
