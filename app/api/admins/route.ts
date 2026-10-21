@@ -58,3 +58,27 @@ export async function POST(request: NextRequest) {
   }
   return NextResponse.json({ admin: { id: data.user.id, email, role: 'admin' }, message: 'Admin invitation sent.' }, { status: 201 });
 }
+
+export async function DELETE(request: NextRequest) {
+  const access = await authorised(request);
+  if ('error' in access) return access.error;
+  let body: { id?: string; confirmation?: string };
+  try { body = await request.json(); } catch { return NextResponse.json({ error: 'Invalid request.' }, { status: 400 }); }
+  if (!body.id || !/^[0-9a-f-]{36}$/i.test(body.id) || body.confirmation !== 'REMOVE ADMIN') {
+    return NextResponse.json({ error: 'Select an administrator and confirm removal.' }, { status: 400 });
+  }
+  if (body.id === access.user.id) return NextResponse.json({ error: 'You cannot remove your own Super Admin access.' }, { status: 400 });
+  const { data: targetData, error: lookupError } = await access.pair.admin.auth.admin.getUserById(body.id);
+  const target = targetData.user;
+  if (lookupError || !target) return NextResponse.json({ error: 'Administrator not found.' }, { status: 404 });
+  if (target.app_metadata?.role !== 'admin') return NextResponse.json({ error: 'Only regular Admin accounts can be removed here. Super Admin access is protected.' }, { status: 403 });
+  // Revoke administrator privileges without deleting the user's identity or attendance data.
+  const metadata = { ...target.app_metadata };
+  delete metadata.role;
+  const { error: updateError } = await access.pair.admin.auth.admin.updateUserById(target.id, { app_metadata: metadata });
+  if (updateError) return NextResponse.json({ error: 'Could not remove administrator access.' }, { status: 500 });
+  // Revoke active sessions where supported so previously issued role-bearing tokens cannot be reused.
+  const { error: signOutError } = await access.pair.admin.auth.admin.signOut(target.id, 'global');
+  if (signOutError) return NextResponse.json({ error: 'Admin role removed, but active sessions could not be revoked. Contact the system owner.' }, { status: 500 });
+  return NextResponse.json({ success: true, message: 'Administrator access removed. The user account was retained.' }, { headers: { 'Cache-Control': 'no-store' } });
+}
