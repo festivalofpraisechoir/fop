@@ -40,6 +40,7 @@ export function Sidebar() {
         <div className="brand-mark small">FOP</div>
         <div><span className="brand-name">Festival of Praise</span><small>Attendance management</small></div>
       </Link>
+      <div className="convener-portrait"><img src="https://www.jubileechurchmanchester.org/img/pk.png" alt="Pastor Abimbola Komolafe, Festival of Praise convener" /><div className="convener-caption"><span>THE CONVENER</span><strong>Pastor Abimbola Komolafe</strong></div></div>
       <nav className="sidebar-nav" aria-label="Main navigation">
         {items.filter(item => !item.superAdmin || role === 'super_admin').map(item => (
           <Link key={item.href} href={item.href} className={`nav-item ${pathname === item.href ? 'active' : ''}`} aria-current={pathname === item.href ? 'page' : undefined}>{item.label}</Link>
