@@ -208,3 +208,15 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{ou
 .convener-caption span{color:#f3c778;font-size:9px;letter-spacing:.14em;font-weight:750}
 .convener-caption strong{color:#fff7ec;font-size:12px;font-weight:650;line-height:1.35}
 @media(max-width:760px){.convener-portrait{display:none}}
+
+
+/* FOP gallery: photographs from the Festival of Praise Manchester official website */
+.fop-gallery{isolation:isolate;min-height:220px;background:#451a21}
+.fop-gallery-photo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 40%;z-index:-2;animation:fop-photo-appear .6s ease both}
+.fop-gallery::before{content:'';position:absolute;inset:0;background:linear-gradient(90deg,rgba(37,11,21,.96) 0%,rgba(56,15,26,.82) 46%,rgba(54,13,23,.25) 100%);z-index:-1}
+.fop-gallery-controls{position:absolute;right:18px;bottom:18px;display:flex;align-items:center;gap:10px;z-index:2;padding:5px 7px;border-radius:40px;background:rgba(30,12,18,.7);color:white;font-size:12px}
+.fop-gallery-controls button{width:30px;height:30px;border:1px solid rgba(255,255,255,.4);border-radius:50%;background:rgba(255,255,255,.12);color:#fff;font-size:22px;cursor:pointer;line-height:1}
+.fop-gallery-controls button:hover{background:rgba(255,255,255,.3)}
+@keyframes fop-photo-appear{from{opacity:.2}to{opacity:1}}
+@media(prefers-reduced-motion:reduce){.fop-gallery-photo{animation:none}}
+@media(max-width:760px){.fop-gallery{min-height:210px;padding-bottom:55px}.fop-gallery-controls{right:12px;bottom:10px}}
