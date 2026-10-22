@@ -6,8 +6,14 @@ import { createSupabaseClient } from '@/lib/supabase';
 import { londonDate } from '@/lib/london-date';
 
 const galleryPhotos = [
-  'https://www.jubileechurchmanchester.org/img/slider-img2.jpg',
-  'https://cdn.happeningnext.com/events7/banners/fb4e276392523cf151c798ed99dbf0b48d654e458e8945e81ae02e0079cd0da1-rimg-w1200-h600-dcd7bdab-gmir.jpg?v=1765325165'
+  '/gallery/WhatsApp%20Image%202026-10-22%20at%2012.55.01%20(1).jpeg',
+  '/gallery/WhatsApp%20Image%202026-10-22%20at%2012.55.01%20(2).jpeg',
+  '/gallery/WhatsApp%20Image%202026-10-22%20at%2012.55.01%20(3).jpeg',
+  '/gallery/WhatsApp%20Image%202026-10-22%20at%2012.55.01%20(4).jpeg',
+  '/gallery/WhatsApp%20Image%202026-10-22%20at%2012.55.01%20(5).jpeg',
+  '/gallery/WhatsApp%20Image%202026-10-22%20at%2012.55.01.jpeg',
+  '/gallery/WhatsApp%20Image%202026-10-22%20at%2012.56.27%20(1).jpeg',
+  '/gallery/WhatsApp%20Image%202026-10-22%20at%2012.56.27.jpeg'
 ];
 type Session = { id:string; title:string; event_date:string; status:string; present:number; late:number; absent:number; permission:number; total:number };
 export default function DashboardPage() {
