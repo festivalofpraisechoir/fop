@@ -8,9 +8,9 @@ import { createSupabaseClient } from '@/lib/supabase';
 const items = [
   { label: 'Dashboard', href: '/dashboard' },
   { label: 'Contacts', href: '/contacts' },
+  { label: 'Attendance', href: '/attendance' },
   { label: 'Church letters', href: '/letters' },
   { label: 'Badge collection', href: '/badges' },
-  { label: 'Attendance', href: '/attendance' },
   { label: 'Reports', href: '/reports', superAdmin: true },
   { label: 'Manage admins', href: '/admins', superAdmin: true },
 ];
