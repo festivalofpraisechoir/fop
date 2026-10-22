@@ -21,11 +21,17 @@ async function context(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   const ctx = await context(request);
   if (ctx.error) return ctx.error;
-  let body: { eventId?: string; status?: string };
+  let body: { eventId?: string; status?: string; title?: string };
   try { body = await request.json(); } catch { return fail('Invalid request.', 400); }
-  if (!body.eventId || !/^[0-9a-f-]{36}$/i.test(body.eventId) || !['open','closed'].includes(body.status || '')) return fail('Invalid session or status.', 400);
-  const { data, error } = await ctx.admin!.from('attendance_events').update({ status: body.status }).eq('id', body.eventId).select('id,status').maybeSingle();
-  if (error) return fail('Could not update session: ' + error.message, 500);
+  if (!body.eventId || !/^[0-9a-f-]{36}$/i.test(body.eventId)) return fail('Invalid session.', 400);
+  if (body.status === undefined && body.title === undefined) return fail('Provide a session name or status.', 400);
+  if (body.status !== undefined && !['open','closed'].includes(body.status)) return fail('Invalid session status.', 400);
+  if (body.title !== undefined && (typeof body.title !== 'string' || !body.title.trim() || body.title.trim().length > 120)) return fail('Session name must be 1–120 characters.', 400);
+  const updates: {status?:string;title?:string} = {};
+  if (body.status !== undefined) updates.status = body.status;
+  if (body.title !== undefined) updates.title = body.title.trim();
+  const { data, error } = await ctx.admin!.from('attendance_events').update(updates).eq('id', body.eventId).select('id,status,title').maybeSingle();
+  if (error) return fail(error.code === '23505' ? 'A session with this name already exists on that date.' : 'Could not update session: ' + error.message, error.code === '23505' ? 409 : 500);
   if (!data) return fail('Session not found.', 404);
   return NextResponse.json({ session: data }, { headers: { 'Cache-Control': 'no-store' } });
 }
