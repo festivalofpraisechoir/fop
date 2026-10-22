@@ -141,3 +141,44 @@ td strong { font-weight: 600; color: #1d2939; }
 @media (max-width: 760px) { .app-shell { flex-direction: column; } .sidebar { min-height: auto; width: 100%; flex-basis: auto; padding: 14px; gap: 14px; } .brand-wrap { padding: 2px 3px 12px; } .sidebar-nav { flex-direction: row; overflow-x: auto; gap: 4px; } .nav-item { min-height: 38px; padding: 9px 11px; white-space: nowrap; } .sidebar-footer { display: grid; grid-template-columns: auto minmax(0,1fr) auto; align-items: center; gap: 8px; padding: 8px 10px; } .sidebar-footer strong { font-size: 11px; } .signout-button { margin: 0; padding: 0; text-align: right; } .main-panel { padding: 23px 14px 34px; } .page-header { align-items: flex-start; flex-direction: column; } .page-header>.primary-button,.page-header>.inline-actions { align-self: stretch; } .panel-grid.two-col { grid-template-columns: 1fr; } .panel-card { padding: 17px; } .toolbar-row { align-items: stretch; flex-direction: column; } .search-input { max-width: none; } .contact-form { grid-template-columns: 1fr; } .form-actions { grid-column: 1; } .session-select-panel { align-items: stretch; flex-direction: column; gap: 14px; } .session-select { width: 100%; } .report-filters .field-group { width: calc(50% - 7px); } .filter-submit { margin-left: 0; } }
 @media (max-width: 420px) { .stats-grid,.stats-grid.three-stats { grid-template-columns: 1fr 1fr; } .stat-card { padding: 15px; } .stat-card strong { font-size: 25px; } .auth-card { padding: 24px 20px; } .checkin-actions { align-items: stretch; } .checkin-actions button { flex: 1 1 auto; } .report-filters .field-group { width: 100%; } .sidebar-footer { grid-template-columns: 1fr auto; } .role-label { display: none; } }
 @media (prefers-reduced-motion: reduce) { *,*::before,*::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; } }
+
+
+/* Festival of Praise Manchester — visual direction inspired by FOPMAN15 event artwork. */
+:root {
+  --bg:#fff8ef;--surface:#fffdf9;--surface-alt:#fff7e8;
+  --text:#271a1c;--text-muted:#6c5551;--border:#eddcca;
+  --primary:#8f2026;--primary-hover:#6f161c;--primary-soft:#fff0e3;
+  --shadow-soft:0 4px 18px rgba(87,30,17,.055);
+}
+body{background:var(--bg)}
+.sidebar{background:linear-gradient(170deg,#311018 0%,#661d20 48%,#2a1119 100%);border-right:1px solid #b9793c}
+.brand-wrap{border-bottom-color:rgba(255,204,130,.25)}
+.brand-mark{background:linear-gradient(135deg,#b45b27,#f4bb55);color:#301117;border-color:#f4d28b}
+.sidebar small,.role-label{color:#edc9ac}
+.nav-item{color:#f3dcd3}
+.nav-item:hover{background:rgba(255,210,151,.13)}
+.nav-item.active{background:rgba(255,205,121,.18);box-shadow:inset 3px 0 #f3b74c;color:#fff}
+.sidebar-footer{border-color:rgba(255,205,121,.28)}
+.sidebar-footer strong{color:#fff8ec}
+.main-panel{background:radial-gradient(ellipse at top right,rgba(246,181,87,.12),transparent 42%),#fff8ef}
+.eyebrow{color:#9e4c2a}
+.panel-card,.stat-card{border-color:#eddcca;box-shadow:var(--shadow-soft)}
+.primary-button{background:var(--primary)}
+.primary-button:hover:not(:disabled){background:var(--primary-hover)}
+.secondary-button{border-color:#e3cdb7;color:#66282a;background:#fffdf9}
+.secondary-button:hover:not(:disabled){background:#fff3e5;border-color:#caa57b}
+.text-link{color:#9a332a}
+thead th{background:#fff3e4;color:#71443a}
+tbody tr:hover,.search-result:hover,.search-result.chosen{background:#fff8ec}
+.table-action{border-color:#e6cbb0;color:#762b27}
+.table-action:hover{background:#fff1df}
+.count-label{background:#fbe9d5;color:#7a3a2a}
+.field-group input:focus,.field-group select:focus,.search-input:focus,.large-search:focus{border-color:#c77d3c;box-shadow:0 0 0 3px rgba(199,125,60,.13)}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{outline-color:#d49a45}
+.fop-hero{position:relative;overflow:hidden;min-height:185px;display:flex;align-items:center;border-radius:16px;background:linear-gradient(90deg,rgba(41,12,19,.98) 0%,rgba(79,20,25,.94) 48%,rgba(93,27,21,.46) 100%),url('https://cdn.happeningnext.com/events7/banners/fb4e276392523cf151c798ed99dbf0b48d654e458e8945e81ae02e0079cd0da1-rimg-w1200-h600-dcd7bdab-gmir.jpg?v=1765325165') center 34%/cover no-repeat;color:#fff;padding:26px 30px;border:1px solid #a96535}
+.fop-hero::after{content:'';position:absolute;inset:auto 0 0;height:5px;background:linear-gradient(90deg,#8b1c27,#df8132,#f6c46d)}
+.fop-hero-content{position:relative;z-index:1;max-width:550px}
+.fop-hero .eyebrow{color:#ffd493;font-size:11px}
+.fop-hero h2{font-size:clamp(22px,3vw,34px);line-height:1.12;letter-spacing:-.035em;margin:7px 0 10px;color:#fff}
+.fop-hero p{margin:0;color:#f6dfce;max-width:430px}
+@media(max-width:760px){.fop-hero{min-height:155px;padding:20px;background-position:center}}
