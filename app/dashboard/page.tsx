@@ -5,8 +5,19 @@ import { useCallback, useEffect, useState } from 'react';
 import { createSupabaseClient } from '@/lib/supabase';
 import { londonDate } from '@/lib/london-date';
 
+const galleryPhotos = [
+  'https://festivalofpraisemanchester.org/wp-content/uploads/2017/01/1P3A6130-620x357.jpg',
+  'https://festivalofpraisemanchester.org/wp-content/uploads/2017/01/1P3A6157-463x410.jpg',
+  'https://festivalofpraisemanchester.org/wp-content/uploads/2017/01/1P3A6230-620x343.jpg',
+  'https://festivalofpraisemanchester.org/wp-content/uploads/2017/01/1P3A6231-615x410.jpg'
+];
 type Session = { id:string; title:string; event_date:string; status:string; present:number; late:number; absent:number; permission:number; total:number };
 export default function DashboardPage() {
+  const [photoIndex,setPhotoIndex]=useState(0);
+  const [failedPhotos,setFailedPhotos]=useState<number[]>([]);
+  const availablePhotos=galleryPhotos.map((_,i)=>i).filter(i=>!failedPhotos.includes(i));
+  const activePhoto=availablePhotos[photoIndex%Math.max(availablePhotos.length,1)];
+  useEffect(()=>{if(availablePhotos.length<2)return;const timer=window.setInterval(()=>setPhotoIndex(i=>(i+1)%availablePhotos.length),6000);return()=>window.clearInterval(timer);},[availablePhotos.length]);
   const [stats,setStats]=useState({contacts:0,present:0,late:0,total:0,closed:0});
   const [sessions,setSessions]=useState<Session[]>([]);
   const [message,setMessage]=useState('');
@@ -35,7 +46,7 @@ export default function DashboardPage() {
   const recent=sessions.slice(0,8);
   return <div className="page-shell">
     <header className="page-header"><div><p className="eyebrow">Festival of Praise / Operations</p><h1>Dashboard</h1><p className="page-description">Today&apos;s activity and attendance history, including completed sessions.</p></div><div className="inline-actions"><button className="secondary-button" onClick={()=>void load()} disabled={loading}>{loading?'Refreshing…':'Refresh figures'}</button><Link className="primary-button" href="/attendance">Open attendance</Link></div></header>
-    <section className="fop-hero" aria-label="Festival of Praise Manchester"><div className="fop-hero-content"><p className="eyebrow">Festival of Praise Manchester</p><h2>One choir. One voice. One purpose.</h2><p>Choir operations, attendance and member coordination — together in one place.</p></div></section>
+    <section className="fop-hero fop-gallery" aria-label="Festival of Praise Manchester photo gallery">{activePhoto!==undefined&&<img key={activePhoto} className="fop-gallery-photo" src={galleryPhotos[activePhoto]} alt={`Festival of Praise Manchester event photograph ${activePhoto+1}`} onError={()=>{setFailedPhotos(a=>a.includes(activePhoto)?a:[...a,activePhoto]);setPhotoIndex(0);}}/>}<div className="fop-hero-content"><p className="eyebrow">Festival of Praise Manchester</p><h2>One choir. One voice. One purpose.</h2><p>Choir operations, attendance and member coordination — together in one place.</p></div>{availablePhotos.length>1&&<div className="fop-gallery-controls" aria-label="Photo gallery controls"><button type="button" aria-label="Previous photo" onClick={()=>setPhotoIndex(i=>(i+availablePhotos.length-1)%availablePhotos.length)}>‹</button><span>{(photoIndex%availablePhotos.length)+1} / {availablePhotos.length}</span><button type="button" aria-label="Next photo" onClick={()=>setPhotoIndex(i=>(i+1)%availablePhotos.length)}>›</button></div>}</section>
     {message&&<p className="notice" role="alert">{message}</p>}
     <section className="stats-grid">
       {[{title:'Registered contacts',value:stats.contacts,meta:'People in the directory'},{title:'Present today',value:stats.present,meta:'Today’s sessions only'},{title:'Late today',value:stats.late,meta:'Today’s sessions only'}].map(card=><article key={card.title} className="stat-card"><span>{card.title}</span><strong>{card.value}</strong><small>{card.meta}</small></article>)}
