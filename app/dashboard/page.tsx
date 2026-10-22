@@ -35,6 +35,7 @@ export default function DashboardPage() {
   const recent=sessions.slice(0,8);
   return <div className="page-shell">
     <header className="page-header"><div><p className="eyebrow">Festival of Praise / Operations</p><h1>Dashboard</h1><p className="page-description">Today&apos;s activity and attendance history, including completed sessions.</p></div><div className="inline-actions"><button className="secondary-button" onClick={()=>void load()} disabled={loading}>{loading?'Refreshing…':'Refresh figures'}</button><Link className="primary-button" href="/attendance">Open attendance</Link></div></header>
+    <section className="fop-hero" aria-label="Festival of Praise Manchester"><div className="fop-hero-content"><p className="eyebrow">Festival of Praise Manchester</p><h2>One choir. One voice. One purpose.</h2><p>Choir operations, attendance and member coordination — together in one place.</p></div></section>
     {message&&<p className="notice" role="alert">{message}</p>}
     <section className="stats-grid">
       {[{title:'Registered contacts',value:stats.contacts,meta:'People in the directory'},{title:'Present today',value:stats.present,meta:'Today’s sessions only'},{title:'Late today',value:stats.late,meta:'Today’s sessions only'},{title:'Sessions today',value:stats.events,meta:'Open and closed sessions today'}].map(card=><article key={card.title} className="stat-card"><span>{card.title}</span><strong>{card.value}</strong><small>{card.meta}</small></article>)}
