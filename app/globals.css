@@ -220,3 +220,11 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{ou
 @keyframes fop-photo-appear{from{opacity:.2}to{opacity:1}}
 @media(prefers-reduced-motion:reduce){.fop-gallery-photo{animation:none}}
 @media(max-width:760px){.fop-gallery{min-height:210px;padding-bottom:55px}.fop-gallery-controls{right:12px;bottom:10px}}
+
+/* Ensure locally hosted gallery photos display above the hero background. */
+.fop-gallery-photo{z-index:0}
+.fop-gallery::before{z-index:1}
+.fop-gallery-content{position:relative;z-index:2}
+.fop-gallery .fop-hero-content{z-index:2}
+.fop-gallery::after{z-index:3}
+.fop-gallery-controls{z-index:4}
