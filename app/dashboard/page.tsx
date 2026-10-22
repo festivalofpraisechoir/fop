@@ -7,7 +7,7 @@ import { londonDate } from '@/lib/london-date';
 
 type Session = { id:string; title:string; event_date:string; status:string; present:number; late:number; absent:number; permission:number; total:number };
 export default function DashboardPage() {
-  const [stats,setStats]=useState({contacts:0,events:0,present:0,late:0,total:0,closed:0});
+  const [stats,setStats]=useState({contacts:0,present:0,late:0,total:0,closed:0});
   const [sessions,setSessions]=useState<Session[]>([]);
   const [message,setMessage]=useState('');
   const [loading,setLoading]=useState(false);
@@ -29,7 +29,7 @@ export default function DashboardPage() {
     const today=londonDate();
     const todays=all.filter(e=>e.event_date===today);
     setSessions(all);
-    setStats({contacts:contacts.count||0,events:todays.length,present:todays.reduce((n,e)=>n+e.present,0),late:todays.reduce((n,e)=>n+e.late,0),total:all.reduce((n,e)=>n+e.total,0),closed:all.filter(e=>e.status==='closed').length});
+    setStats({contacts:contacts.count||0,present:todays.reduce((n,e)=>n+e.present,0),late:todays.reduce((n,e)=>n+e.late,0),total:all.reduce((n,e)=>n+e.total,0),closed:all.filter(e=>e.status==='closed').length});
   },[]);
   useEffect(()=>{void load();const onFocus=()=>void load();const onVisible=()=>{if(document.visibilityState==='visible')void load();};window.addEventListener('focus',onFocus);document.addEventListener('visibilitychange',onVisible);return()=>{window.removeEventListener('focus',onFocus);document.removeEventListener('visibilitychange',onVisible);};},[load]);
   const recent=sessions.slice(0,8);
@@ -38,7 +38,7 @@ export default function DashboardPage() {
     <section className="fop-hero" aria-label="Festival of Praise Manchester"><div className="fop-hero-content"><p className="eyebrow">Festival of Praise Manchester</p><h2>One choir. One voice. One purpose.</h2><p>Choir operations, attendance and member coordination — together in one place.</p></div></section>
     {message&&<p className="notice" role="alert">{message}</p>}
     <section className="stats-grid">
-      {[{title:'Registered contacts',value:stats.contacts,meta:'People in the directory'},{title:'Present today',value:stats.present,meta:'Today’s sessions only'},{title:'Late today',value:stats.late,meta:'Today’s sessions only'},{title:'Sessions today',value:stats.events,meta:'Open and closed sessions today'}].map(card=><article key={card.title} className="stat-card"><span>{card.title}</span><strong>{card.value}</strong><small>{card.meta}</small></article>)}
+      {[{title:'Registered contacts',value:stats.contacts,meta:'People in the directory'},{title:'Present today',value:stats.present,meta:'Today’s sessions only'},{title:'Late today',value:stats.late,meta:'Today’s sessions only'}].map(card=><article key={card.title} className="stat-card"><span>{card.title}</span><strong>{card.value}</strong><small>{card.meta}</small></article>)}
     </section>
     <section className="stats-grid" style={{gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))'}}>
       <article className="stat-card"><span>All recorded attendance</span><strong>{stats.total}</strong><small>Across all sessions</small></article>
