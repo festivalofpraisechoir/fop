@@ -6,10 +6,8 @@ import { createSupabaseClient } from '@/lib/supabase';
 import { londonDate } from '@/lib/london-date';
 
 const galleryPhotos = [
-  'https://festivalofpraisemanchester.org/wp-content/uploads/2017/01/1P3A6130-620x357.jpg',
-  'https://festivalofpraisemanchester.org/wp-content/uploads/2017/01/1P3A6157-463x410.jpg',
-  'https://festivalofpraisemanchester.org/wp-content/uploads/2017/01/1P3A6230-620x343.jpg',
-  'https://festivalofpraisemanchester.org/wp-content/uploads/2017/01/1P3A6231-615x410.jpg'
+  'https://www.jubileechurchmanchester.org/img/slider-img2.jpg',
+  'https://cdn.happeningnext.com/events7/banners/fb4e276392523cf151c798ed99dbf0b48d654e458e8945e81ae02e0079cd0da1-rimg-w1200-h600-dcd7bdab-gmir.jpg?v=1765325165'
 ];
 type Session = { id:string; title:string; event_date:string; status:string; present:number; late:number; absent:number; permission:number; total:number };
 export default function DashboardPage() {
