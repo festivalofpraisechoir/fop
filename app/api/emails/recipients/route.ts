@@ -14,5 +14,5 @@ export async function GET(request:NextRequest){
  if(error)return NextResponse.json({error:'Could not load recipients.'},{status:503});
  const unique=new Map<string,{email:string;group:string;part:string}>();
  for(const c of data||[]){const email=String(c.email||'').trim().toLowerCase();if(/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)&&!unique.has(email))unique.set(email,{email,group:c.singer_or_musician||'',part:c.part_or_instrument||''});}
- return NextResponse.json({recipients:[...unique.values()]},{headers:{'Cache-Control':'no-store'}});
+ return NextResponse.json({recipients:Array.from(unique.values())},{headers:{'Cache-Control':'no-store'}});
 }
