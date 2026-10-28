@@ -3,7 +3,7 @@
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { createSupabaseClient } from '@/lib/supabase';
 
-type Admin = { id: string; email: string; role: 'admin' | 'super_admin'; created_at: string };
+type Admin = { id: string; email: string; role: 'admin' | 'super_admin'; created_at: string; can_send_emails: boolean };
 
 export default function AdminManagementPage() {
   const [admins, setAdmins] = useState<Admin[]>([]);
@@ -82,6 +82,17 @@ export default function AdminManagementPage() {
     }
   }
 
+  async function changeEmailPermission(a:Admin){
+    const enabled=!a.can_send_emails;
+    if(!window.confirm((enabled?'Grant':'Revoke')+' email sending permission for '+a.email+'?'))return;
+    setSaving(true);setError('');setSuccess('');
+    try{const accessToken=await token();if(!accessToken)throw new Error('Sign in again.');
+      const response=await fetch('/api/admins/email-permission',{method:'PATCH',headers:{'Content-Type':'application/json',Authorization:'Bearer '+accessToken},body:JSON.stringify({id:a.id,enabled})});
+      const body=await response.json();if(!response.ok)throw new Error(body.error||'Could not update email permission.');
+      await load();setSuccess('Email permission '+(enabled?'granted to ':'revoked from ')+a.email+'.');
+    }catch(e){setError(e instanceof Error?e.message:'Could not update permission.');}finally{setSaving(false);}
+  }
+
   async function removeAdmin() {
     if(!removeTarget)return;
     setSaving(true);setError('');setSuccess('');
@@ -112,7 +123,7 @@ export default function AdminManagementPage() {
     {removeTarget&&<section className="panel-card"><h2>Remove administrator access?</h2><p>Remove <strong>{removeTarget.email}</strong> as an administrator? They will no longer be able to manage FOP data. Their user account and attendance records will be retained.</p><div className="inline-actions"><button className="secondary-button" disabled={saving} onClick={()=>setRemoveTarget(null)}>Cancel</button><button className="primary-button" disabled={saving} onClick={()=>void removeAdmin()}>{saving?'Removing…':'Confirm remove admin'}</button></div></section>}
     <section className="panel-card">
       <div className="panel-header"><h2>Authorised administrators <span className="count-label">{admins.length}</span></h2><button type="button" className="secondary-button" onClick={()=>void load()} disabled={loading}>Refresh</button></div>
-      {loading ? <p className="muted">Loading administrators…</p> : admins.length ? <div className="table-wrap"><table><thead><tr><th>Email</th><th>Role</th><th>Added</th><th>Actions</th></tr></thead><tbody>{admins.map(a=><tr key={a.id}><td><strong>{a.email}</strong></td><td><span className="status-pill neutral">{a.role === 'super_admin' ? 'Super Admin' : 'Admin'}</span></td><td>{new Date(a.created_at).toLocaleDateString('en-GB')}</td><td>{a.role==='admin'?<><button className="table-action" disabled={saving} onClick={()=>void generateCode(a)}>Generate activation code</button> <button className="table-action" disabled={saving} onClick={()=>setRemoveTarget(a)}>Remove admin</button></>:<span className="muted">Protected</span>}</td></tr>)}</tbody></table></div> : <p className="empty-state">No administrators found.</p>}
+      {loading ? <p className="muted">Loading administrators…</p> : admins.length ? <div className="table-wrap"><table><thead><tr><th>Email</th><th>Role</th><th>Added</th><th>Email access</th><th>Actions</th></tr></thead><tbody>{admins.map(a=><tr key={a.id}><td><strong>{a.email}</strong></td><td><span className="status-pill neutral">{a.role === 'super_admin' ? 'Super Admin' : 'Admin'}</span></td><td>{new Date(a.created_at).toLocaleDateString('en-GB')}</td><td>{a.role==='super_admin'?<strong>Always enabled</strong>:<button type="button" className="table-action" disabled={saving} onClick={()=>void changeEmailPermission(a)}>{a.can_send_emails?'Enabled — revoke':'Disabled — grant'}</button>}</td><td>{a.role==='admin'?<><button className="table-action" disabled={saving} onClick={()=>void generateCode(a)}>Generate activation code</button> <button className="table-action" disabled={saving} onClick={()=>setRemoveTarget(a)}>Remove admin</button></>:<span className="muted">Protected</span>}</td></tr>)}</tbody></table></div> : <p className="empty-state">No administrators found.</p>}
     </section>
   </div>;
 }
