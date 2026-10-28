@@ -4,6 +4,18 @@ import {createSupabaseClient} from '@/lib/supabase';
 type Recipient={email:string;group:string;part:string};
 export default function EmailsPage(){
  const [recipients,setRecipients]=useState<Recipient[]>([]);
+ const [logData,setLogData]=useState<{subject:string;subjects:string[];rows:{email:string;status:string;created_at:string|null;error:string|null}[];counts:{sent:number;failed:number;not_sent:number;total:number}}|null>(null);
+ const [logSubject,setLogSubject]=useState('');
+ const [logFilter,setLogFilter]=useState('all');
+ const [logLoading,setLogLoading]=useState(false);
+ const [logError,setLogError]=useState('');
+ async function loadLog(chosen=''){
+  setLogLoading(true);setLogError('');
+  try{const token=await session();const res=await fetch('/api/gmail/delivery-log'+(chosen?'?subject='+encodeURIComponent(chosen):''),{headers:{Authorization:'Bearer '+token},cache:'no-store'});const data=await res.json();if(!res.ok)throw Error(data.error||'Could not load log');setLogData(data);setLogSubject(data.subject);}
+  catch(e){setLogError(e instanceof Error?e.message:'Could not load log');}
+  finally{setLogLoading(false);}
+ }
+
  const [loading,setLoading]=useState(true);
  const [error,setError]=useState('');
  const [filter,setFilter]=useState('All');
@@ -66,6 +78,7 @@ export default function EmailsPage(){
  const groups=useMemo(()=>['All','Singer','Musician',...Array.from(new Set(recipients.map(r=>r.part).filter(Boolean))).sort()], [recipients]);
  const selected=useMemo(()=>recipients.filter(r=>filter==='All'||r.group===filter||r.part===filter),[recipients,filter]);
  useEffect(()=>{let active=true;(async()=>{try{const supabase=createSupabaseClient();if(!supabase)throw Error('Sign in required.');const {data}=await supabase.auth.getSession();const token=data.session?.access_token;if(!token)throw Error('Sign in required.');const response=await fetch('/api/emails/recipients',{headers:{Authorization:'Bearer '+token},cache:'no-store'});const body=await response.json();if(!response.ok)throw Error(body.error||'Could not load recipients.');if(active)setRecipients(body.recipients);}catch(e){if(active)setError(e instanceof Error?e.message:'Could not load recipients.');}finally{if(active)setLoading(false);}})();return()=>{active=false};},[]);
+ const visibleLogRows=(logData?.rows||[]).filter(r=>logFilter==='all'||r.status===logFilter);
  return <div className="page-shell">
  <header className="page-header"><div><p className="eyebrow">Festival of Praise / Communications</p><h1>Email communications</h1><p className="page-description">Prepare an email to registered choir members. Send private individual emails through the official Festival of Praise Gmail account.</p></div></header>
  <section className="panel-card"><div className="panel-header"><h2>Compose email</h2></div>
@@ -87,6 +100,19 @@ export default function EmailsPage(){
  <div className="form-actions"><button type="button" className="secondary-button" onClick={()=>setPreview(!preview)} disabled={!subject.trim()||!message.trim()||invalidAddresses.length>0||duplicateAddresses.length>0}>{preview?'Hide preview':'Preview email'}</button><button type="button" className="secondary-button" onClick={sendTest} disabled={!connected||busy||!adminEmail||!subject.trim()||!message.trim()||attachmentsInvalid}>Send test to my email</button><button type="button" className="primary-button" onClick={recipientMode==='individual'?sendIndividual:sendAll} disabled={!connected||busy||(recipientMode==='group'&&(loading||!!error||!selected.length))||(recipientMode==='individual'&&(!validAddress(manualEmail.trim())||[...ccAddresses,...bccAddresses].some(a=>a.toLowerCase()===manualEmail.trim().toLowerCase())))||!subject.trim()||!message.trim()||invalidAddresses.length>0||duplicateAddresses.length>0||attachmentsInvalid}>{busy?'Working…':!connected?'Sending not yet connected':recipientMode==='individual'?'Send to this person':'Send to '+selected.length+' members'}</button></div>
  </div></section>
  {preview&&<section className="panel-card"><h2>Email preview</h2><p className="muted">To: {recipientMode==='individual'?manualEmail||'Enter an email address':selected.length+' individual recipients (addresses hidden from each other)'}</p><p className="muted">CC: {ccAddresses.join(', ')||'None'}</p><p className="muted">Attachments: {attachments.map(f=>f.name).join(', ')||'None'}</p><p className="muted">BCC: {bccAddresses.length ? bccAddresses.length+' hidden recipient(s)' : 'None'}</p><h3>{subject}</h3><p style={{whiteSpace:'pre-wrap',overflowWrap:'anywhere'}}>{message}</p><p className="muted">This is a preview only. No email has been sent.</p></section>}
+ <section className="panel-card">
+ <div className="panel-header"><h2>Email sending &amp; failure log</h2></div>
+ <p className="muted">Review which registered members had a Gmail submission, which attempts failed, and who has not been attempted. “Sent” means accepted by Gmail, not confirmed inbox delivery. Manual emails sent outside this app are not tracked.</p>
+ <div className="form-actions"><button type="button" className="secondary-button" disabled={logLoading} onClick={()=>loadLog(logSubject)}>{logLoading?'Loading…':'Refresh email log'}</button></div>
+ {logError&&<p className="notice error-notice" role="alert">{logError}</p>}
+ {logData&&<div className="contact-form">
+ <div className="field-group"><label htmlFor="log-subject">Email campaign</label><select id="log-subject" value={logSubject} onChange={e=>loadLog(e.target.value)}>{logData.subjects.map(s=><option key={s} value={s}>{s}</option>)}</select></div>
+ <p><strong>Total registered:</strong> {logData.counts.total} &nbsp; <strong>Sent to Gmail:</strong> {logData.counts.sent} &nbsp; <strong>Failed / uncertain:</strong> {logData.counts.failed} &nbsp; <strong>Not attempted:</strong> {logData.counts.not_sent}</p>
+ <div className="field-group"><label htmlFor="log-filter">Filter results</label><select id="log-filter" value={logFilter} onChange={e=>setLogFilter(e.target.value)}><option value="all">All members</option><option value="sent">Sent to Gmail</option><option value="failed">Failed / uncertain</option><option value="not_sent">Not attempted</option></select></div>
+ <div className="form-actions"><button type="button" className="secondary-button" onClick={()=>navigator.clipboard.writeText(visibleLogRows.map(r=>r.email).join(', '))}>Copy {visibleLogRows.length} filtered addresses</button></div>
+ <div style={{overflowX:'auto',maxHeight:480,overflowY:'auto'}}><table style={{width:'100%',textAlign:'left',borderCollapse:'collapse'}}><thead><tr><th>Email address</th><th>Status</th><th>Attempted at</th><th>Error</th></tr></thead><tbody>{visibleLogRows.map(r=><tr key={r.email}><td style={{padding:'8px 10px',overflowWrap:'anywhere'}}>{r.email}</td><td style={{padding:'8px 10px'}}>{r.status==='sent'?'Sent to Gmail':r.status==='failed'?'Failed / uncertain':'Not attempted'}</td><td style={{padding:'8px 10px'}}>{r.created_at?new Date(r.created_at).toLocaleString('en-GB'):'—'}</td><td style={{padding:'8px 10px',overflowWrap:'anywhere'}}>{r.error||'—'}</td></tr>)}</tbody></table></div>
+ </div>}
+ </section>
  <section className="panel-card"><h2>Sending privacy</h2><p>Each registered member receives an individual message. For bulk sends, CC and BCC are excluded from each member&apos;s email to prevent duplicate copies. For individual sends, CC addresses are visible and BCC addresses are hidden. For privacy, leave CC and BCC empty for choir-wide announcements. Gmail submission does not guarantee final inbox delivery.</p></section>
  </div>;
 }
