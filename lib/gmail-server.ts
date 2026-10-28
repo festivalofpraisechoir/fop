@@ -11,12 +11,29 @@ export function parseEmails(input:unknown){if(typeof input!=='string')return [];
 export function validEmail(s:string){return s.length<=254&&/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);}
 export type MailAttachment={name:string;type:string;data:string};
 const safeName=(name:string)=>name.replace(/[\r\n"\\]/g,'_').slice(0,120);
+export function formatEmailBody(input:string){
+ const normalized=input.replace(/\r\n?/g,'\n').split('\n').map(line=>line.trim());
+ const paragraphs:string[]=[];let lines:string[]=[];
+ const flush=()=>{if(lines.length){paragraphs.push(lines.join(' ').replace(/\s+/g,' ').trim());lines=[];}};
+ for(const line of normalized){if(!line){flush();}else{lines.push(line);}}
+ flush();
+ return paragraphs.filter(Boolean);
+}
+export function emailHtml(body:string){
+ const escape=(s:string)=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+ return '<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;padding:0;background:#ffffff;color:#202124;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.65"><div style="max-width:680px;margin:0 auto;padding:24px 18px">'+formatEmailBody(body).map(p=>'<p style="margin:0 0 18px;overflow-wrap:break-word">'+escape(p)+'</p>').join('')+'</div></body></html>';
+}
 export function rawMessage(to:string,cc:string[],bcc:string[],subject:string,body:string,attachments:MailAttachment[]=[]){
  const encode=(s:string)=>'=?UTF-8?B?'+Buffer.from(s,'utf8').toString('base64')+'?=';
  const headers=['From: '+encode('Festival of Praise Choir')+' <'+SENDER+'>','To: '+to,...(cc.length?['Cc: '+cc.join(', ')]:[]),...(bcc.length?['Bcc: '+bcc.join(', ')]:[]),'Subject: '+encode(subject),'MIME-Version: 1.0'];
- if(!attachments.length)return Buffer.from([...headers,'Content-Type: text/plain; charset=UTF-8','Content-Transfer-Encoding: base64'].join('\r\n')+'\r\n\r\n'+Buffer.from(body,'utf8').toString('base64')).toString('base64url');
+ const plain=formatEmailBody(body).join('\n\n');
+ const html=emailHtml(body);
+ const b64=(s:string)=>Buffer.from(s,'utf8').toString('base64').match(/.{1,76}/g)?.join('\r\n')||'';
+ const alternative='fop_alt_'+randomBytes(12).toString('hex');
+ const alternativeParts=['Content-Type: multipart/alternative; boundary="'+alternative+'"','','--'+alternative,'Content-Type: text/plain; charset=UTF-8','Content-Transfer-Encoding: base64','',b64(plain),'--'+alternative,'Content-Type: text/html; charset=UTF-8','Content-Transfer-Encoding: base64','',b64(html),'--'+alternative+'--',''];
+ if(!attachments.length)return Buffer.from([...headers,...alternativeParts].join('\r\n')).toString('base64url');
  const boundary='fop_'+randomBytes(18).toString('hex');
- const parts=[...headers,'Content-Type: multipart/mixed; boundary="'+boundary+'"','','--'+boundary,'Content-Type: text/plain; charset=UTF-8','Content-Transfer-Encoding: base64','',Buffer.from(body,'utf8').toString('base64')];
+ const parts=[...headers,'Content-Type: multipart/mixed; boundary="'+boundary+'"','','--'+boundary,...alternativeParts];
  for(const a of attachments){parts.push('--'+boundary,'Content-Type: '+a.type+'; name="'+safeName(a.name)+'"','Content-Disposition: attachment; filename="'+safeName(a.name)+'"','Content-Transfer-Encoding: base64','',a.data.match(/.{1,76}/g)?.join('\r\n')||'');}
  parts.push('--'+boundary+'--','');
  return Buffer.from(parts.join('\r\n')).toString('base64url');
