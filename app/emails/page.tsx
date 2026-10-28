@@ -37,6 +37,7 @@ export default function EmailsPage(){
  const history=await response.json();
  if(!response.ok)throw Error(history.error||'Could not check sending history. No emails sent.');
  const statuses:Record<string,string>=history.statuses||{};
+ if(Object.keys(statuses).length===0&&(history.otherSubjects||[]).length){setNotice('Sending paused: no previous records match this exact subject. Previous campaign subject: '+history.otherSubjects[0]+'. If resuming that campaign, use its exact subject. No emails were sent.');return;}
  const pending=selected.filter(r=>!statuses[r.email.toLowerCase()]);
  const already=selected.filter(r=>statuses[r.email.toLowerCase()]==='sent').length;
  const uncertain=selected.filter(r=>statuses[r.email.toLowerCase()]==='failed').length;
