@@ -37,13 +37,13 @@ async function authorised(request: NextRequest) {
 export async function GET(request: NextRequest) {
   const access = await authorised(request);
   if ('error' in access) return access.error;
-  const admins: { id: string; email: string; role: string; created_at: string }[] = [];
+  const admins: { id: string; email: string; role: string; created_at: string; can_send_emails: boolean }[] = [];
   for (let page = 1; page <= 50; page++) {
     const { data, error } = await access.pair.admin.auth.admin.listUsers({ page, perPage: 100 });
     if (error) return NextResponse.json({ error: 'Could not load administrators.' }, { status: 500 });
     for (const user of data.users) {
       const role = user.app_metadata?.role;
-      if (role === 'admin' || role === 'super_admin') admins.push({ id: user.id, email: user.email || '', role, created_at: user.created_at });
+      if (role === 'admin' || role === 'super_admin') admins.push({ id: user.id, email: user.email || '', role, created_at: user.created_at, can_send_emails: role === 'super_admin' || user.app_metadata?.can_send_emails === true });
     }
     if (data.users.length < 100) break;
   }
@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
     if (existing) {
       if (existing.app_metadata?.role === 'super_admin') return NextResponse.json({ error: 'This account is already a Super Admin.' }, { status: 409 });
       if (existing.app_metadata?.role === 'admin') return NextResponse.json({ error: 'This person is already an administrator.' }, { status: 409 });
-      const { error: restoreError } = await access.pair.admin.auth.admin.updateUserById(existing.id, { app_metadata: { role: 'admin' } });
+      const { error: restoreError } = await access.pair.admin.auth.admin.updateUserById(existing.id, { app_metadata: { role: 'admin', can_send_emails: false } });
       if (restoreError) return NextResponse.json({ error: 'Could not restore administrator access.' }, { status: 500 });
       const { data: verified, error: verifyError } = await access.pair.admin.auth.admin.getUserById(existing.id);
       if (verifyError || verified.user?.app_metadata?.role !== 'admin') return NextResponse.json({ error: 'Could not verify restored administrator access.' }, { status: 500 });
@@ -112,7 +112,7 @@ export async function DELETE(request: NextRequest) {
   // Revoke administrator privileges without deleting the user's identity or attendance data.
   // Supabase merges app_metadata instead of replacing it; omitting role leaves the old admin role intact.
   // Explicitly null the role to revoke privileges, while retaining the account and other metadata.
-  const { error: updateError } = await access.pair.admin.auth.admin.updateUserById(target.id, { app_metadata: { role: null } });
+  const { error: updateError } = await access.pair.admin.auth.admin.updateUserById(target.id, { app_metadata: { role: null, can_send_emails: false } });
   if (updateError) return NextResponse.json({ error: 'Could not remove administrator access.' }, { status: 500 });
   const { data: verified, error: verifyError } = await access.pair.admin.auth.admin.getUserById(target.id);
   if (verifyError || verified.user?.app_metadata?.role === 'admin') return NextResponse.json({ error: 'Could not verify administrator access was removed. Please retry.' }, { status: 500 });
