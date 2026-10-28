@@ -11,7 +11,7 @@ export async function GET(req:NextRequest){
    c.admin.from('gmail_send_log').select('recipient_email,subject,status,created_at,error').order('created_at',{ascending:false}).limit(5000)
   ]);
   if(contactsError||logsError)throw Error('Could not load email log');
-  const valid=(s:string)=>/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(s);
+  const valid=(s:string)=>/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
   const members=Array.from(new Set((contacts||[]).map(x=>String(x.email||'').trim().toLowerCase()).filter(valid))).sort();
   const allLogs=logs||[];
   const subjects=Array.from(new Set(allLogs.map(x=>String(x.subject||'')).filter(Boolean)));
