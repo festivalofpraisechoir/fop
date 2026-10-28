@@ -27,7 +27,31 @@ export default function EmailsPage(){
  async function sendOne(to:string,test:boolean,payload:{name:string;type:string;data:string}[]){const token=await session();const response=await fetch('/api/gmail/send',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({to,subject,message,cc:test?'':cc,bcc:test?'':bcc,test,manual:!test&&recipientMode==='individual',attachments:payload})});const result=await response.json();if(!response.ok)throw Error(result.error||'Sending failed');}
  async function sendTest(){if(!adminEmail||!connected||attachmentsInvalid)return;try{setBusy(true);setNotice('');await sendOne(adminEmail,true,await attachmentPayload());setNotice('Test email submitted successfully to '+adminEmail+'. Check your inbox.');}catch(e){setNotice(e instanceof Error?e.message:'Test failed');}finally{setBusy(false);}}
  async function sendIndividual(){const to=manualEmail.trim().toLowerCase();if(!connected||busy||!validAddress(to)||!subject.trim()||!message.trim()||attachmentsInvalid||invalidAddresses.length||duplicateAddresses.length||[...ccAddresses,...bccAddresses].some(a=>a.toLowerCase()===to))return;if(!window.confirm('Send this email only to '+to+'? CC and BCC addresses will also receive copies if entered.'))return;setBusy(true);setNotice('');try{await sendOne(to,false,await attachmentPayload());setNotice('Email submitted to Gmail for '+to+'.');}catch(e){setNotice(e instanceof Error?e.message:'Sending failed');}finally{setBusy(false);}}
- async function sendAll(){if(!connected||attachmentsInvalid||!selected.length||invalidAddresses.length||duplicateAddresses.length||!subject.trim()||!message.trim())return;if(!window.confirm('Send this email to '+selected.length+' registered members? Each member receives an individual email. CC recipients will receive a copy of EACH email. This cannot be undone.'))return;setBusy(true);setNotice('');let sent=0;try{const payload=await attachmentPayload();for(const r of selected){await sendOne(r.email,false,payload);sent++;setProgress('Sent '+sent+' of '+selected.length);}setNotice('Successfully submitted '+sent+' emails to Gmail.');}catch(e){setNotice('Stopped after '+sent+' of '+selected.length+' successful submissions. '+(e instanceof Error?e.message:'Error')+'. Do not retry the entire list; some emails have already been sent.');}finally{setBusy(false);}}
+ async function sendAll(){
+ if(!connected||attachmentsInvalid||!selected.length||invalidAddresses.length||duplicateAddresses.length||!subject.trim()||!message.trim())return;
+ setBusy(true);setNotice('');
+ let sent=0;
+ try{
+ const token=await session();
+ const response=await fetch('/api/gmail/history?subject='+encodeURIComponent(subject.trim()),{headers:{Authorization:'Bearer '+token},cache:'no-store'});
+ const history=await response.json();
+ if(!response.ok)throw Error(history.error||'Could not check sending history. No emails sent.');
+ const statuses:Record<string,string>=history.statuses||{};
+ const pending=selected.filter(r=>!statuses[r.email.toLowerCase()]);
+ const already=selected.filter(r=>statuses[r.email.toLowerCase()]==='sent').length;
+ const uncertain=selected.filter(r=>statuses[r.email.toLowerCase()]==='failed').length;
+ if(!pending.length){setNotice('No new recipients to send. '+already+' already submitted; '+uncertain+' failed or uncertain and require manual review.');return;}
+ if(!window.confirm('Send to '+pending.length+' remaining members? '+already+' already submitted and '+uncertain+' uncertain/failed will be skipped. CC/BCC will receive a copy for EACH new message.'))return;
+ const payload=await attachmentPayload();
+ for(const recipient of pending){
+ await sendOne(recipient.email,false,payload);
+ sent++;
+ setProgress('New submissions: '+sent+' of '+pending.length+'; skipped '+already+' already sent and '+uncertain+' uncertain.');
+ await new Promise(resolve=>setTimeout(resolve,1200));
+ }
+ setNotice('Submitted '+sent+' new messages. Previously submitted: '+already+'. Requires review: '+uncertain+'.');
+ }catch(e){setNotice('Stopped after '+sent+' new submissions. '+(e instanceof Error?e.message:'Error')+'. Check history before retrying.');}finally{setBusy(false);}
+ }
  useEffect(()=>{let active=true;(async()=>{try{const supabase=createSupabaseClient();if(!supabase)return;const {data}=await supabase.auth.getUser();if(active){setAdminEmail(data.user?.email||'');setIsSuper(data.user?.app_metadata?.role==='super_admin');}const token=await session();const response=await fetch('/api/gmail/status',{headers:{Authorization:'Bearer '+token},cache:'no-store'});const body=await response.json();if(!response.ok)throw Error(body.error||'Gmail status check failed');if(active){setConnected(!!body.connected);if(!body.connected&&body.diagnostics?.projectHost)setNotice('Gmail record not found in '+body.diagnostics.projectHost+'. Contact the administrator.');}}catch(e){if(active)setNotice('Gmail status check failed: '+(e instanceof Error?e.message:'Unknown error'));} })();const params=new URLSearchParams(window.location.search);const outcome=params.get('gmail');if(outcome&&active)setNotice(outcome==='connected'?'Gmail connected successfully.':outcome);return()=>{active=false};},[]);
  const allowedTypes=['application/pdf','application/msword','application/vnd.openxmlformats-officedocument.wordprocessingml.document','application/vnd.ms-excel','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','application/vnd.ms-powerpoint','application/vnd.openxmlformats-officedocument.presentationml.presentation','image/png','image/jpeg','image/webp'];
  const attachmentSize=attachments.reduce((n,f)=>n+f.size,0);
