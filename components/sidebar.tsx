@@ -5,7 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { createSupabaseClient } from '@/lib/supabase';
 
-const items = [
+const items: { label: string; href: string; superAdmin?: boolean; emailAccess?: boolean }[] = [
   { label: 'Dashboard', href: '/dashboard' },
   { label: 'Contacts', href: '/contacts' },
   { label: 'Attendance', href: '/attendance' },
