@@ -9,6 +9,6 @@ export async function GET(req:NextRequest){
  if(error)throw error;
  const statuses:Record<string,string>={};
  for(const row of data||[]){const email=String(row.recipient_email).toLowerCase();if(!(email in statuses))statuses[email]=row.status;}
- return NextResponse.json({statuses},{headers:{'Cache-Control':'no-store'}});
+ const {data:recent}=await c.admin.from('gmail_send_log').select('subject,created_at').order('created_at',{ascending:false}).limit(100);const otherSubjects=Array.from(new Set((recent||[]).map(row=>String(row.subject||'')).filter(value=>value&&value!==subject)));return NextResponse.json({statuses,otherSubjects},{headers:{'Cache-Control':'no-store'}});
  }catch(e){return NextResponse.json({error:e instanceof Error?e.message:'Unavailable'},{status:403});}
 }
