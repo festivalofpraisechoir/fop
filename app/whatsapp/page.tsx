@@ -91,7 +91,7 @@ export default function WhatsAppPage(){
  <p style={{color:'#6c5551',lineHeight:1.65}}>Members can scan this QR code with their phone camera to open the official FOP WhatsApp Community invitation and choose to join.</p>
  <div style={{display:'flex',gap:10,flexWrap:'wrap',marginTop:15}}>
  <a href={'https://api.qrserver.com/v1/create-qr-code/?size=1000x1000&margin=20&data='+encodeURIComponent(inviteLink)} target="_blank" rel="noopener noreferrer" style={{...btn,textDecoration:'none',background:'var(--primary)',color:'#fff'}}>Open / Save QR Code</a>
- <button style={btn} onClick={()=>window.print()}>Print Page</button>
+ 
  </div>
  <p style={{fontSize:12,color:'#8a5200',marginTop:13}}>Only share this QR code with intended members. Anyone who receives it can open the invitation link. QR code generation uses an external service.</p></div>
  </section>
