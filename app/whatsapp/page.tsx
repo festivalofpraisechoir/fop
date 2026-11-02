@@ -83,6 +83,18 @@ export default function WhatsAppPage(){
  <section className="wa-stats" style={{display:'grid',gridTemplateColumns:'repeat(5,minmax(0,1fr))',gap:12,marginBottom:20}}>
  {([{label:'Eligible Members',value:members.length,icon:'♙',bg:'#fff0e3',color:'#8f2026'},{label:'Singers',value:singers,icon:'🎤',bg:'#fbe9d5',color:'#66282a'},{label:'Musicians',value:musicians,icon:'♫',bg:'#fff0e3',color:'#6f161c'},{label:'Invited',value:members.filter(c=>statuses[c.id]==='invited').length,icon:'➤',bg:'#fff4df',color:'#8a5200'},{label:'Joined',value:members.filter(c=>statuses[c.id]==='joined').length,icon:'✓',bg:'#eaf5ef',color:'#176448'}] as const).map(item=><div key={item.label} style={{background:item.bg,borderRadius:15,padding:'19px 12px',display:'flex',alignItems:'center',gap:12,minWidth:0}}><span style={{fontSize:27,color:item.color}}>{item.icon}</span><div><strong style={{fontSize:29,display:'block',lineHeight:1.1}}>{busy?'…':item.value}</strong><span style={{fontSize:12,fontWeight:650}}>{item.label}</span></div></div>)}
  </section>
+ <section style={{...panel,marginBottom:20,display:'flex',gap:22,alignItems:'center',flexWrap:'wrap'}}>
+ <div style={{background:'#fff',padding:12,border:'1px solid #eddcca',borderRadius:14,flex:'0 0 auto'}}>
+ <img src={'https://api.qrserver.com/v1/create-qr-code/?size=260x260&margin=12&data='+encodeURIComponent(inviteLink)} alt="Scan to join the Festival of Praise WhatsApp Community" width={220} height={220} style={{display:'block',maxWidth:'100%',height:'auto'}}/>
+ </div>
+ <div style={{flex:'1 1 240px'}}><h2 style={{fontSize:22,margin:'0 0 10px'}}>Scan to Join Our WhatsApp Community</h2>
+ <p style={{color:'#6c5551',lineHeight:1.65}}>Members can scan this QR code with their phone camera to open the official FOP WhatsApp Community invitation and choose to join.</p>
+ <div style={{display:'flex',gap:10,flexWrap:'wrap',marginTop:15}}>
+ <a href={'https://api.qrserver.com/v1/create-qr-code/?size=1000x1000&margin=20&data='+encodeURIComponent(inviteLink)} target="_blank" rel="noopener noreferrer" style={{...btn,textDecoration:'none',background:'var(--primary)',color:'#fff'}}>Open / Save QR Code</a>
+ <button style={btn} onClick={()=>window.print()}>Print Page</button>
+ </div>
+ <p style={{fontSize:12,color:'#8a5200',marginTop:13}}>Only share this QR code with intended members. Anyone who receives it can open the invitation link. QR code generation uses an external service.</p></div>
+ </section>
  <section className="wa-two" style={{display:'grid',gridTemplateColumns:'1.15fr 1fr',gap:18,marginBottom:24}}>
  <div style={panel}><h2 style={{fontSize:20,margin:'0 0 6px'}}>🔗 Community Invitation Link</h2><p style={{color:'#6c5551',margin:'0 0 17px'}}>Share this link with eligible members to join the Community.</p>
  <input aria-label="WhatsApp Community invitation link" type="url" value={inviteLink} onChange={e=>setInviteLink(e.target.value)} placeholder="https://chat.whatsapp.com/..." style={{...field,width:'100%',boxSizing:'border-box',marginBottom:12}}/>
