@@ -16,7 +16,7 @@ export default function WhatsAppPage(){
  const [busy,setBusy]=useState(true);
  const [saving,setSaving]=useState<string|null>(null);
  const [notice,setNotice]=useState('');
- const [inviteLink,setInviteLink]=useState('');
+ const [inviteLink,setInviteLink]=useState('https://chat.whatsapp.com/Few2J8suU478WesnBMNcc3');
  const [selected,setSelected]=useState<string[]>([]);
  useEffect(()=>{void load();},[]);
  async function load(){
