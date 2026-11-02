@@ -9,6 +9,7 @@ const items: { label: string; href: string; superAdmin?: boolean; emailAccess?: 
   { label: 'Dashboard', href: '/dashboard' },
   { label: 'Contacts', href: '/contacts' },
   { label: 'Attendance', href: '/attendance' },
+  { label: 'WhatsApp Community', href: '/whatsapp' },
   { label: 'Church letters', href: '/letters' },
   { label: 'Badge collection', href: '/badges' },
   { label: 'Email communications', href: '/emails', emailAccess: true },
