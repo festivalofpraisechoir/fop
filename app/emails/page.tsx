@@ -85,12 +85,12 @@ export default function EmailsPage(){
  const attachmentSize=attachments.reduce((n,f)=>n+f.size,0);
  const attachmentsInvalid=attachments.length>5||attachmentSize>5*1024*1024||attachments.some(f=>!allowedTypes.includes(f.type));
  const parseAddresses=(value:string)=>value.split(/[,;\n]+/).map(v=>v.trim()).filter(Boolean);
+ const validAddress=(value:string)=>/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
  const multipleAddresses=parseAddresses(multipleEmails).map(a=>a.toLowerCase());
  const uniqueMultiple=Array.from(new Set(multipleAddresses));
  const invalidMultiple=uniqueMultiple.filter(a=>!validAddress(a));
  const ccAddresses=parseAddresses(cc);
  const bccAddresses=parseAddresses(bcc);
- const validAddress=(value:string)=>/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
  const invalidAddresses=[...ccAddresses,...bccAddresses].filter(a=>!validAddress(a));
  const duplicateAddresses=ccAddresses.filter(a=>bccAddresses.some(b=>b.toLowerCase()===a.toLowerCase()));
  const groups=useMemo(()=>['All','Singer','Musician',...Array.from(new Set(recipients.map(r=>r.part).filter(Boolean))).sort()], [recipients]);
