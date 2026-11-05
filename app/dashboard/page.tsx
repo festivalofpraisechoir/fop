@@ -22,7 +22,7 @@ export default function DashboardPage() {
   const availablePhotos=galleryPhotos.map((_,i)=>i).filter(i=>!failedPhotos.includes(i));
   const activePhoto=availablePhotos[photoIndex%Math.max(availablePhotos.length,1)];
   useEffect(()=>{if(availablePhotos.length<2)return;const timer=window.setInterval(()=>setPhotoIndex(i=>(i+1)%availablePhotos.length),6000);return()=>window.clearInterval(timer);},[availablePhotos.length]);
-  const [stats,setStats]=useState({contacts:0,present:0,late:0,total:0,closed:0});
+  const [stats,setStats]=useState({contacts:0,present:0,late:0,total:0,closed:0,active:0,withdrawn:0,pending:0});
   const [sessions,setSessions]=useState<Session[]>([]);
   const [message,setMessage]=useState('');
   const [loading,setLoading]=useState(false);
@@ -31,7 +31,7 @@ export default function DashboardPage() {
     if(!supabase){setMessage('Connect Supabase to load attendance data.');return;}
     setLoading(true);setMessage('');
     const [contacts,events,records]=await Promise.all([
-      supabase.from('contacts').select('id',{count:'exact',head:true}),
+      supabase.from('contacts').select('id,participation_status'),
       supabase.from('attendance_events').select('id,event_date,title,status').order('event_date',{ascending:false}),
       supabase.from('attendance_records').select('event_id,status')
     ]);
@@ -44,7 +44,7 @@ export default function DashboardPage() {
     const today=londonDate();
     const todays=all.filter(e=>e.event_date===today);
     setSessions(all);
-    setStats({contacts:contacts.count||0,present:todays.reduce((n,e)=>n+e.present,0),late:todays.reduce((n,e)=>n+e.late,0),total:all.reduce((n,e)=>n+e.total,0),closed:all.filter(e=>e.status==='closed').length});
+    setStats({contacts:contacts.data?.length||0,active:(contacts.data||[]).filter(c=>c.participation_status==='active').length,withdrawn:(contacts.data||[]).filter(c=>c.participation_status==='withdrawn').length,pending:(contacts.data||[]).filter(c=>c.participation_status==='pending').length,present:todays.reduce((n,e)=>n+e.present,0),late:todays.reduce((n,e)=>n+e.late,0),total:all.reduce((n,e)=>n+e.total,0),closed:all.filter(e=>e.status==='closed').length});
   },[]);
   useEffect(()=>{void load();const onFocus=()=>void load();const onVisible=()=>{if(document.visibilityState==='visible')void load();};window.addEventListener('focus',onFocus);document.addEventListener('visibilitychange',onVisible);return()=>{window.removeEventListener('focus',onFocus);document.removeEventListener('visibilitychange',onVisible);};},[load]);
   const recent=sessions.slice(0,8);
@@ -55,6 +55,7 @@ export default function DashboardPage() {
     <section className="stats-grid">
       {[{title:'Registered contacts',value:stats.contacts,meta:'People in the directory'},{title:'Present today',value:stats.present,meta:'Today’s sessions only'},{title:'Late today',value:stats.late,meta:'Today’s sessions only'}].map(card=><article key={card.title} className="stat-card"><span>{card.title}</span><strong>{card.value}</strong><small>{card.meta}</small></article>)}
     </section>
+    <section className="stats-grid">{[{title:'Active participants',value:stats.active},{title:'Withdrawn',value:stats.withdrawn},{title:'Pending confirmation',value:stats.pending}].map(card=><article key={card.title} className="stat-card"><span>{card.title}</span><strong>{card.value}</strong><small>FOP participation status</small></article>)}</section>
     <section className="stats-grid" style={{gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))'}}>
       <article className="stat-card"><span>All recorded attendance</span><strong>{stats.total}</strong><small>Across all sessions</small></article>
       <article className="stat-card"><span>Completed sessions</span><strong>{stats.closed}</strong><small>Closed sessions retained in history</small></article>
