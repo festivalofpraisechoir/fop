@@ -19,6 +19,9 @@ export async function POST(request:NextRequest){
  if(eventError)return fail('Could not verify the session. Please retry.',503);
  if(!event)return fail('Session not found.',404);
  if(event.status!=='open')return fail('This session is closed. Attendance was not changed.',409);
+ const {data:contact,error:contactError}=await db.from('contacts').select('participation_status').eq('id',body.contactId).maybeSingle();
+ if(contactError)return fail('Could not verify participation status.',503);
+ if(!contact||contact.participation_status!=='active')return fail('This member is not currently active for FOP.',409);
  const {data:inserted,error}=await db.from('attendance_records').upsert({contact_id:body.contactId,event_id:body.eventId,status:body.status,check_in_time:['Absent','Permission'].includes(body.status!)?null:new Date().toISOString(),checked_by:user.id},{onConflict:'contact_id,event_id',ignoreDuplicates:true}).select('id,status').maybeSingle();
  if(error)return fail('Attendance could not be saved. Please retry or refresh to verify.',503);
  if(!inserted){
