@@ -144,7 +144,7 @@ export default function ContactsPage() {
       const rehearsalDates=result.rehearsalDates as string[];
       const emails=Array.from(new Set(filtered.filter(c=>eligibleIds.has(c.id))
         .map(c=>(c.email||'').trim().toLowerCase())
-        .filter(e=>/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(e))));
+        .filter(e=>/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e))));
       if(!emails.length){setMessage('No qualifying email addresses found for the last two rehearsals with the current filters.');return;}
       const url=URL.createObjectURL(new Blob([emails.join(', ')],{type:'text/plain;charset=utf-8'}));
       const a=document.createElement('a');a.href=url;a.download='fop-last-two-rehearsals-emails.txt';a.click();URL.revokeObjectURL(url);
