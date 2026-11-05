@@ -89,14 +89,15 @@ export default function AttendancePage(){
   useEffect(()=>{loadEvents();loadContacts();},[]);
   useEffect(()=>{setDeleteSessionOpen(false);setDeleteConfirmation('');setDeleteRecordCount(null);setRenameOpen(false);if(eventId)loadRows(eventId);},[eventId]);
   useEffect(()=>{if(!eventId)return;const timer=setInterval(()=>{if(!busy){void loadRows(eventId);void loadEvents();}},5000);return()=>clearInterval(timer);},[eventId,busy]);
-  const visibleContacts=useMemo(()=>contacts.filter(c=>(memberType==='All'||c.singer_or_musician===memberType)&&(subgroup==='All'||c.part_or_instrument===subgroup)),[contacts,memberType,subgroup]);
+  const visibleContacts=useMemo(()=>contacts.filter(c=>c.participation_status==='active'&&(memberType='All'||c.singer_or_musician===memberType)&&(subgroup==='All'||c.part_or_instrument===subgroup)),[contacts,memberType,subgroup]);
   const subgroups=useMemo(()=>Array.from(new Set(contacts.filter(c=>memberType==='All'||c.singer_or_musician===memberType).map(c=>c.part_or_instrument?.trim()).filter((x):x is string=>!!x))).sort(),[contacts,memberType]);
-  const visibleRows=useMemo(()=>rows.filter(r=>{const contact=contacts.find(c=>c.id===r.contact_id);return !!contact&&(memberType==='All'||contact.singer_or_musician===memberType)&&(subgroup==='All'||contact.part_or_instrument===subgroup);}),[rows,contacts,memberType,subgroup]);
+  const visibleRows=useMemo(()=>rows.filter(r=>{const contact=contacts.find(c=>c.id===r.contact_id);return !!contact&&contact.participation_status==='active'&&(memberType='All'||contact.singer_or_musician===memberType)&&(subgroup==='All'||contact.part_or_instrument===subgroup);}),[rows,contacts,memberType,subgroup]);
   const filtered=useMemo(()=>visibleContacts.filter(c=>[c.full_name,c.email,c.phone_number,c.church_name].some(v=>v?.toLowerCase().includes(search.toLowerCase()))).slice(0,12),[visibleContacts,search]);
   const recorded=new Set(rows.map(r=>r.contact_id));
   async function createEvent(e:FormEvent<HTMLFormElement>){e.preventDefault();const s=createSupabaseClient();if(!s)return;setBusy(true);setMessage('');const {data,error}=await s.from('attendance_events').insert({title:title.trim(),event_date:date,type,created_by:(await s.auth.getUser()).data.user?.id}).select().single();setBusy(false);if(error){setMessage(error.code==='23505'?'A session with this title already exists on that date.':error.message);return;}setEvents(prev=>[data as EventSession,...prev]);setEventId(data.id);setCreateOpen(false);setMessage('Attendance session created.');}
   async function mark(contact:ContactRecord,status:'Present'|'Late'|'Absent'|'Permission'){
     if(busy)return;
+    if(contact.participation_status!=='active')return setMessage('Only active members can be marked for new attendance.');
     if(!eventId||activeEvent?.status!=='open')return setMessage('Select an open session before recording attendance.');
     const s=createSupabaseClient();if(!s)return;
     setBusy(true);setMessage('');
