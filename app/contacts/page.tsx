@@ -2,6 +2,7 @@
 
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from 'react';
 import { createSupabaseClient, type ContactRecord } from '@/lib/supabase';
+import { londonDate } from '@/lib/london-date';
 
 type ContactDraft = { full_name: string; email: string; phone_number: string; singer_or_musician: 'Singer'|'Musician'; part_or_instrument: string; church_name: string; church_letter_submitted: boolean; registered_at: string; participation_status:'active'|'withdrawn'|'pending'; withdrawal_date:string; withdrawal_reason:string };
 const blank: ContactDraft = { full_name:'', email:'', phone_number:'', singer_or_musician:'Singer', part_or_instrument:'', church_name:'', church_letter_submitted:false, registered_at:'',participation_status:'active',withdrawal_date:'',withdrawal_reason:'' };
@@ -130,8 +131,32 @@ export default function ContactsPage() {
     const a=document.createElement('a');a.href=url;a.download='fop-email-addresses.txt';a.click();URL.revokeObjectURL(url);
     setMessage('Exported '+emails.length+' unique email addresses from the current filters.');
   }
+  async function exportRecentRehearsalEmails(){
+    const supabase=createSupabaseClient();
+    if(!supabase){setMessage('Supabase is not configured.');return;}
+    setBusy(true);setMessage('');
+    try{
+      const {data:sessions,error:sessionError}=await supabase.from('attendance_events')
+        .select('id,event_date').eq('type','Rehearsal').lte('event_date',londonDate())
+        .order('event_date',{ascending:false}).order('created_at',{ascending:false}).limit(2);
+      if(sessionError)throw new Error('Could not load rehearsal sessions: '+sessionError.message);
+      if(!sessions||sessions.length<2){setMessage('At least two rehearsal sessions are required for this export.');return;}
+      const {data:records,error:attendanceError}=await supabase.from('attendance_records')
+        .select('contact_id').in('event_id',sessions.map(s=>s.id)).in('status',['Present','Permission']);
+      if(attendanceError)throw new Error('Could not load rehearsal attendance: '+attendanceError.message);
+      const eligibleIds=new Set((records||[]).map(r=>r.contact_id));
+      const emails=Array.from(new Set(filtered.filter(c=>eligibleIds.has(c.id))
+        .map(c=>(c.email||'').trim().toLowerCase())
+        .filter(e=>/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(e))));
+      if(!emails.length){setMessage('No qualifying email addresses found for the last two rehearsals with the current filters.');return;}
+      const url=URL.createObjectURL(new Blob([emails.join(', ')],{type:'text/plain;charset=utf-8'}));
+      const a=document.createElement('a');a.href=url;a.download='fop-last-two-rehearsals-emails.txt';a.click();URL.revokeObjectURL(url);
+      setMessage('Exported '+emails.length+' unique email addresses marked Present or Permission in at least one of the last two rehearsals ('+sessions.map(s=>s.event_date).join(' and ')+'), using your current filters.');
+    }catch(error){setMessage(error instanceof Error?error.message:'Could not export rehearsal emails.');}
+    finally{setBusy(false);}
+  }
   return <div className="page-shell">
-    <header className="page-header"><div><p className="eyebrow">Directory</p><h1>Contacts</h1><p className="page-description">Manage registered singers, musicians and their details.</p></div><div className="inline-actions"><button className="secondary-button" onClick={exportEmails}>Export Email Addresses (TXT)</button><button className="secondary-button" onClick={()=>{setImportOpen(!importOpen);setMessage('');}}>Import CSV</button><button className="primary-button" onClick={startAdd}>Add contact</button>{superAdmin&&<button className="secondary-button" disabled={busy||!contacts.length} onClick={()=>{setDeleteAllOpen(true);setDeleteConfirm('');}}>Delete all contacts</button>}</div></header>
+    <header className="page-header"><div><p className="eyebrow">Directory</p><h1>Contacts</h1><p className="page-description">Manage registered singers, musicians and their details.</p></div><div className="inline-actions"><button className="secondary-button" onClick={exportEmails}>Export Email Addresses (TXT)</button><button className="secondary-button" disabled={busy} onClick={()=>void exportRecentRehearsalEmails()}>Export Last 2 Rehearsals Emails (TXT)</button><button className="secondary-button" onClick={()=>{setImportOpen(!importOpen);setMessage('');}}>Import CSV</button><button className="primary-button" onClick={startAdd}>Add contact</button>{superAdmin&&<button className="secondary-button" disabled={busy||!contacts.length} onClick={()=>{setDeleteAllOpen(true);setDeleteConfirm('');}}>Delete all contacts</button>}</div></header>
     {message&&<p className="notice" role="status">{message}</p>}
     <section className="panel-card"><div className="inline-actions">{(['All','Singer','Musician'] as const).map(t=><button key={t} type="button" className={memberType===t?'primary-button':'secondary-button'} onClick={()=>setMemberType(t)}>{t==='All'?'All contacts':t==='Singer'?'Singers':'Musicians'} ({t==='All'?contacts.length:contacts.filter(c=>c.singer_or_musician===t).length})</button>)}</div></section>
     <section className="panel-card"><div className="inline-actions">{(['All','active','withdrawn','pending'] as const).map(s=><button key={s} className={participationFilter===s?'primary-button':'secondary-button'} onClick={()=>setParticipationFilter(s)}>{s==='All'?'All participation statuses':s==='active'?'Active':s==='withdrawn'?'Withdrawn':'Pending Confirmation'} ({s==='All'?contacts.length:contacts.filter(c=>c.participation_status===s).length})</button>)}</div><p className="muted">Email export uses your current contact filters and removes duplicate addresses.</p></section>
