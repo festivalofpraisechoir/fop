@@ -123,11 +123,11 @@ export default function ContactsPage() {
     setMessage(`Imported ${valid.length} contacts; skipped ${csvRows.length-valid.length} possible duplicates.`);setCsvRows(null);setImportOpen(false);await load();
   }
   function exportEmails(){
-    const emails=Array.from(new Set(filtered.map(c=>(c.email||'').trim().toLowerCase()).filter(e=>/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(e))));
+    const emails=Array.from(new Set(filtered.map(c=>(c.email||'').trim().toLowerCase()).filter(e=>/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e))));
     if(!emails.length){setMessage('No valid email addresses in the current filtered contacts.');return;}
-    const csv='\\uFEFFEmail Address\\r\\n'+emails.map(e=>'"'+e.replace(/"/g,'""')+'"').join('\\r\\n');
-    const blob=new Blob([csv.replace(/\\\\uFEFF/g,'\\uFEFF').replace(/\\\\r\\\\n/g,'\\r\\n')],{type:'text/csv;charset=utf-8'});
-    const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='fop-email-addresses.csv';a.click();URL.revokeObjectURL(url);
+    const csv='\uFEFFEmail Address\r\n'+emails.map(e=>'"'+e.replace(/"/g,'""')+'"').join('\r\n');
+    const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
+    const a=document.createElement('a');a.href=url;a.download='fop-email-addresses.csv';a.click();URL.revokeObjectURL(url);
     setMessage('Exported '+emails.length+' unique email addresses from the current filters.');
   }
   return <div className="page-shell">
