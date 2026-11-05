@@ -138,7 +138,7 @@ export default function ContactsPage() {
     try{
       const {data:sessions,error:sessionError}=await supabase.from('attendance_events')
         .select('id,event_date').eq('type','Rehearsal').lte('event_date',londonDate())
-        .order('event_date',{ascending:false}).order('created_at',{ascending:false}).limit(2);
+        .order('event_date',{ascending:false}).limit(2);
       if(sessionError)throw new Error('Could not load rehearsal sessions: '+sessionError.message);
       if(!sessions||sessions.length<2){setMessage('At least two rehearsal sessions are required for this export.');return;}
       const {data:records,error:attendanceError}=await supabase.from('attendance_records')
