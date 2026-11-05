@@ -39,7 +39,7 @@ export default function WhatsAppPage(){
   setStatuses(Object.fromEntries(((invites.data||[]) as Entry[]).map(r=>[r.contact_id,r.status])));
   setBusy(false);
  }
- const members=useMemo(()=>contacts.filter(c=>eligible.has(c.id)),[contacts,eligible]);
+ const members=useMemo(()=>contacts.filter(c=>eligible.has(c.id)&&c.participation_status==='active'),[contacts,eligible]);
  const singers=members.filter(c=>c.singer_or_musician==='Singer').length;
  const musicians=members.filter(c=>c.singer_or_musician==='Musician').length;
  const parts=useMemo(()=>Array.from(new Set(members.filter(c=>kind==='All'||c.singer_or_musician===kind).map(c=>c.part_or_instrument).filter((p):p is string=>!!p))).sort(),[members,kind]);
