@@ -17,6 +17,9 @@ export type ContactRecord = {
   church_name: string | null;
   church_letter_submitted: boolean;
   badge_collected: boolean;
+  participation_status: 'active'|'withdrawn'|'pending';
+  withdrawal_date: string|null;
+  withdrawal_reason: string|null;
   barcode_code: string | null;
   registered_at: string | null;
   created_at: string;
