@@ -136,14 +136,18 @@ export default function ContactsPage() {
     if(!supabase){setMessage('Supabase is not configured.');return;}
     setBusy(true);setMessage('');
     try{
-      const {data:sessions,error:sessionError}=await supabase.from('attendance_events')
+      const {data:recentSessions,error:sessionError}=await supabase.from('attendance_events')
         .select('id,event_date').eq('type','Rehearsal').lte('event_date',londonDate())
-        .order('event_date',{ascending:false}).limit(2);
+        .order('event_date',{ascending:false}).limit(50);
       if(sessionError)throw new Error('Could not load rehearsal sessions: '+sessionError.message);
-      if(!sessions||sessions.length<2){setMessage('At least two rehearsal sessions are required for this export.');return;}
-      const {data:records,error:attendanceError}=await supabase.from('attendance_records')
-        .select('contact_id').in('event_id',sessions.map(s=>s.id)).in('status',['Present','Permission']);
+      if(!recentSessions?.length){setMessage('No rehearsal sessions found.');return;}
+      const {data:allRecords,error:attendanceError}=await supabase.from('attendance_records')
+        .select('event_id,contact_id,status').in('event_id',recentSessions.map(s=>s.id));
       if(attendanceError)throw new Error('Could not load rehearsal attendance: '+attendanceError.message);
+      const sessions=recentSessions.filter(s=>(allRecords||[]).some(r=>r.event_id===s.id)).slice(0,2);
+      if(sessions.length<2){setMessage('At least two rehearsals with recorded attendance are required for this export.');return;}
+      const selectedIds=new Set(sessions.map(s=>s.id));
+      const records=(allRecords||[]).filter(r=>selectedIds.has(r.event_id)&&(r.status==='Present'||r.status==='Permission'));
       const eligibleIds=new Set((records||[]).map(r=>r.contact_id));
       const emails=Array.from(new Set(filtered.filter(c=>eligibleIds.has(c.id))
         .map(c=>(c.email||'').trim().toLowerCase())
