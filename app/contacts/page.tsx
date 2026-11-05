@@ -2,7 +2,6 @@
 
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from 'react';
 import { createSupabaseClient, type ContactRecord } from '@/lib/supabase';
-import { londonDate } from '@/lib/london-date';
 
 type ContactDraft = { full_name: string; email: string; phone_number: string; singer_or_musician: 'Singer'|'Musician'; part_or_instrument: string; church_name: string; church_letter_submitted: boolean; registered_at: string; participation_status:'active'|'withdrawn'|'pending'; withdrawal_date:string; withdrawal_reason:string };
 const blank: ContactDraft = { full_name:'', email:'', phone_number:'', singer_or_musician:'Singer', part_or_instrument:'', church_name:'', church_letter_submitted:false, registered_at:'',participation_status:'active',withdrawal_date:'',withdrawal_reason:'' };
@@ -136,26 +135,20 @@ export default function ContactsPage() {
     if(!supabase){setMessage('Supabase is not configured.');return;}
     setBusy(true);setMessage('');
     try{
-      const {data:recentSessions,error:sessionError}=await supabase.from('attendance_events')
-        .select('id,event_date').eq('type','Rehearsal').lte('event_date',londonDate())
-        .order('event_date',{ascending:false}).limit(50);
-      if(sessionError)throw new Error('Could not load rehearsal sessions: '+sessionError.message);
-      if(!recentSessions?.length){setMessage('No rehearsal sessions found.');return;}
-      const {data:allRecords,error:attendanceError}=await supabase.from('attendance_records')
-        .select('event_id,contact_id,status').in('event_id',recentSessions.map(s=>s.id));
-      if(attendanceError)throw new Error('Could not load rehearsal attendance: '+attendanceError.message);
-      const sessions=recentSessions.filter(s=>(allRecords||[]).some(r=>r.event_id===s.id)).slice(0,2);
-      if(sessions.length<2){setMessage('At least two rehearsals with recorded attendance are required for this export.');return;}
-      const selectedIds=new Set(sessions.map(s=>s.id));
-      const records=(allRecords||[]).filter(r=>selectedIds.has(r.event_id)&&(r.status==='Present'||r.status==='Permission'));
-      const eligibleIds=new Set((records||[]).map(r=>r.contact_id));
+      const {data:authData}=await supabase.auth.getSession();
+      if(!authData.session)throw new Error('Please sign in again.');
+      const response=await fetch('/api/attendance-email-eligibility',{headers:{Authorization:'Bearer '+authData.session.access_token},cache:'no-store'});
+      const result=await response.json();
+      if(!response.ok)throw new Error(result.error||'Could not check rehearsal attendance.');
+      const eligibleIds=new Set<string>(result.eligibleContactIds as string[]);
+      const rehearsalDates=result.rehearsalDates as string[];
       const emails=Array.from(new Set(filtered.filter(c=>eligibleIds.has(c.id))
         .map(c=>(c.email||'').trim().toLowerCase())
         .filter(e=>/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(e))));
       if(!emails.length){setMessage('No qualifying email addresses found for the last two rehearsals with the current filters.');return;}
       const url=URL.createObjectURL(new Blob([emails.join(', ')],{type:'text/plain;charset=utf-8'}));
       const a=document.createElement('a');a.href=url;a.download='fop-last-two-rehearsals-emails.txt';a.click();URL.revokeObjectURL(url);
-      setMessage('Exported '+emails.length+' unique email addresses marked Present or Permission in at least one of the last two rehearsals ('+sessions.map(s=>s.event_date).join(' and ')+'), using your current filters.');
+      setMessage('Exported '+emails.length+' unique email addresses marked Present or Permission in at least one of the last two rehearsals ('+rehearsalDates.join(' and ')+'), using your current filters.');
     }catch(error){setMessage(error instanceof Error?error.message:'Could not export rehearsal emails.');}
     finally{setBusy(false);}
   }
