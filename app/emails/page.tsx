@@ -48,8 +48,8 @@ export default function EmailsPage(){
  if(!connected||busy||!addresses.length||addresses.some(a=>!validAddress(a))||!subject.trim()||!message.trim()||attachmentsInvalid||invalidAddresses.length||duplicateAddresses.length)return;
  if(unfinishedPlaceholder){setNotice('Please replace unfinished placeholders before sending.');return;}
  if(!window.confirm('Send the same email individually to '+addresses.length+' addresses? Each recipient will receive a private email. CC/BCC will not be included.'))return;
- setBusy(true);setNotice('');setProgress('');let sent=0;let failed=0;
- try{const payload=await attachmentPayload();for(const email of addresses){try{await sendOne(email,false,payload,false);sent++;}catch(e){failed++;setNotice('Last issue for '+email+': '+(e instanceof Error?e.message:'Unknown error'));}setProgress('Submitted '+sent+' of '+addresses.length+'; '+failed+' failed or skipped.');if(sent+failed<addresses.length)await new Promise(resolve=>setTimeout(resolve,1200));}setNotice('Finished: '+sent+' submitted to Gmail; '+failed+' failed or skipped. Review the sending log before retrying.');}
+ setBusy(true);setNotice('');setProgress('');let sent=0;let failed=0;const failures:string[]=[];
+ try{const payload=await attachmentPayload();for(const email of addresses){try{await sendOne(email,false,payload,false);sent++;}catch(e){failed++;failures.push(email+': '+(e instanceof Error?e.message:'Unknown error'));}setProgress('Submitted '+sent+' of '+addresses.length+'; '+failed+' failed or skipped.');if(sent+failed<addresses.length)await new Promise(resolve=>setTimeout(resolve,1200));}setNotice('Finished: '+sent+' submitted to Gmail; '+failed+' failed or skipped.'+(failures.length?' Reasons: '+failures.join(' | '):''));}
  catch(e){setNotice('Stopped after '+sent+' submissions. '+(e instanceof Error?e.message:'Error'));}
  finally{setBusy(false);}
  }
