@@ -125,13 +125,13 @@ export default function ContactsPage() {
   function exportEmails(){
     const emails=Array.from(new Set(filtered.map(c=>(c.email||'').trim().toLowerCase()).filter(e=>/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e))));
     if(!emails.length){setMessage('No valid email addresses in the current filtered contacts.');return;}
-    const csv='\uFEFFEmail Address\r\n'+emails.map(e=>'"'+e.replace(/"/g,'""')+'"').join('\r\n');
-    const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
-    const a=document.createElement('a');a.href=url;a.download='fop-email-addresses.csv';a.click();URL.revokeObjectURL(url);
+    const plainText=emails.join(', ');
+    const url=URL.createObjectURL(new Blob([plainText],{type:'text/plain;charset=utf-8'}));
+    const a=document.createElement('a');a.href=url;a.download='fop-email-addresses.txt';a.click();URL.revokeObjectURL(url);
     setMessage('Exported '+emails.length+' unique email addresses from the current filters.');
   }
   return <div className="page-shell">
-    <header className="page-header"><div><p className="eyebrow">Directory</p><h1>Contacts</h1><p className="page-description">Manage registered singers, musicians and their details.</p></div><div className="inline-actions"><button className="secondary-button" onClick={exportEmails}>Export Email Addresses (CSV)</button><button className="secondary-button" onClick={()=>{setImportOpen(!importOpen);setMessage('');}}>Import CSV</button><button className="primary-button" onClick={startAdd}>Add contact</button>{superAdmin&&<button className="secondary-button" disabled={busy||!contacts.length} onClick={()=>{setDeleteAllOpen(true);setDeleteConfirm('');}}>Delete all contacts</button>}</div></header>
+    <header className="page-header"><div><p className="eyebrow">Directory</p><h1>Contacts</h1><p className="page-description">Manage registered singers, musicians and their details.</p></div><div className="inline-actions"><button className="secondary-button" onClick={exportEmails}>Export Email Addresses (TXT)</button><button className="secondary-button" onClick={()=>{setImportOpen(!importOpen);setMessage('');}}>Import CSV</button><button className="primary-button" onClick={startAdd}>Add contact</button>{superAdmin&&<button className="secondary-button" disabled={busy||!contacts.length} onClick={()=>{setDeleteAllOpen(true);setDeleteConfirm('');}}>Delete all contacts</button>}</div></header>
     {message&&<p className="notice" role="status">{message}</p>}
     <section className="panel-card"><div className="inline-actions">{(['All','Singer','Musician'] as const).map(t=><button key={t} type="button" className={memberType===t?'primary-button':'secondary-button'} onClick={()=>setMemberType(t)}>{t==='All'?'All contacts':t==='Singer'?'Singers':'Musicians'} ({t==='All'?contacts.length:contacts.filter(c=>c.singer_or_musician===t).length})</button>)}</div></section>
     <section className="panel-card"><div className="inline-actions">{(['All','active','withdrawn','pending'] as const).map(s=><button key={s} className={participationFilter===s?'primary-button':'secondary-button'} onClick={()=>setParticipationFilter(s)}>{s==='All'?'All participation statuses':s==='active'?'Active':s==='withdrawn'?'Withdrawn':'Pending Confirmation'} ({s==='All'?contacts.length:contacts.filter(c=>c.participation_status===s).length})</button>)}</div><p className="muted">Email export uses your current contact filters and removes duplicate addresses.</p></section>
