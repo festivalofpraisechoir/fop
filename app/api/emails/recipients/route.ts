@@ -10,7 +10,7 @@ export async function GET(request:NextRequest){
  const {data:{user}}=await auth.auth.getUser(token);
  if(!user||!['admin','super_admin'].includes(user.app_metadata?.role)||!(user.app_metadata?.role==='super_admin'||user.app_metadata?.can_send_emails===true))return NextResponse.json({error:'Email permission required.'},{status:403});
  const db=createClient(url,secret,{auth:{persistSession:false,autoRefreshToken:false}});
- const {data,error}=await db.from('contacts').select('email,singer_or_musician,part_or_instrument').not('email','is',null);
+ const {data,error}=await db.from('contacts').select('email,singer_or_musician,part_or_instrument').eq('participation_status','active').not('email','is',null);
  if(error)return NextResponse.json({error:'Could not load recipients.'},{status:503});
  const unique=new Map<string,{email:string;group:string;part:string}>();
  for(const c of data||[]){const email=String(c.email||'').trim().toLowerCase();if(/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)&&!unique.has(email))unique.set(email,{email,group:c.singer_or_musician||'',part:c.part_or_instrument||''});}
