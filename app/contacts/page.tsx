@@ -24,6 +24,10 @@ export default function ContactsPage() {
   const [csvName,setCsvName] = useState('');
   const [importOpen,setImportOpen] = useState(false);
   const [superAdmin,setSuperAdmin] = useState(false);
+  const [attendanceMember,setAttendanceMember] = useState<ContactRecord|null>(null);
+  const [attendanceHistory,setAttendanceHistory] = useState<{id:string;title:string;event_date:string;status:string;check_in_time:string|null}[]>([]);
+  const [attendanceLoading,setAttendanceLoading] = useState(false);
+  const [attendanceError,setAttendanceError] = useState('');
   const [deleteTarget,setDeleteTarget] = useState<ContactRecord|null>(null);
   const [deleteAllOpen,setDeleteAllOpen] = useState(false);
   const [deleteConfirm,setDeleteConfirm] = useState('');
@@ -53,6 +57,21 @@ export default function ContactsPage() {
   useEffect(()=>{load();},[]);
   const filtered=useMemo(()=>contacts.filter(c=>(participationFilter==='All'||c.participation_status===participationFilter)&&(badgeFilter==='All'||(badgeFilter==='Collected'?c.badge_collected:!c.badge_collected))&&(letterFilter==='All'||(letterFilter==='Submitted'?c.church_letter_submitted:!c.church_letter_submitted))&&(memberType==='All'||c.singer_or_musician===memberType)&&[c.full_name,c.email,c.phone_number,c.church_name,c.part_or_instrument,c.singer_or_musician].some(v=>v?.toLowerCase().includes(search.toLowerCase()))),[contacts,search,memberType,letterFilter,badgeFilter,participationFilter]);
 
+  async function viewAttendance(c:ContactRecord){
+    const s=createSupabaseClient();if(!s)return;
+    setAttendanceMember(c);setAttendanceHistory([]);setAttendanceError('');setAttendanceLoading(true);
+    try{
+      const {data:events,error:eventsError}=await s.from('attendance_events').select('id,title,event_date,type').eq('type','Rehearsal').lte('event_date',new Date().toLocaleDateString('en-CA')).order('event_date',{ascending:true});
+      if(eventsError)throw eventsError;
+      const ids=(events||[]).map(e=>e.id);
+      if(!ids.length){setAttendanceHistory([]);return;}
+      const {data:records,error:recordsError}=await s.from('attendance_records').select('event_id,status,check_in_time').eq('contact_id',c.id).in('event_id',ids);
+      if(recordsError)throw recordsError;
+      const byEvent=new Map((records||[]).map(a=>[a.event_id,a]));
+      setAttendanceHistory((events||[]).map(e=>({id:e.id,title:e.title,event_date:e.event_date,status:byEvent.get(e.id)?.status||'Not recorded',check_in_time:byEvent.get(e.id)?.check_in_time||null})).reverse());
+    }catch(error){setAttendanceError(error instanceof Error?error.message:'Unable to load attendance.');}
+    finally{setAttendanceLoading(false);}
+  }
   async function markLetter(c:ContactRecord){
     if(letterSaving||c.church_letter_submitted)return;
     const s=createSupabaseClient();if(!s)return;
@@ -174,8 +193,20 @@ export default function ContactsPage() {
       </form>
     </section>}
     {importOpen&&<section className="panel-card"><div className="panel-header"><div><p className="eyebrow">Bulk import</p><h2>Import registered contacts</h2></div><button className="secondary-button" onClick={()=>{setImportOpen(false);setCsvRows(null);}}>Close</button></div><p className="muted">Upload a CSV with column headings such as Name, Email, Phone number, Singer or Musician, Voice part / Instrument, Church and Church letter submitted. Review the detected rows before saving.</p><div className="field-group"><label htmlFor="csv-file">CSV file</label><input id="csv-file" type="file" accept=".csv,text/csv" onChange={handleFile}/></div>{csvRows&&<><p className="notice">{csvName}: {csvRows.length} rows detected. {csvRows.filter(r=>r.full_name).length} rows have a name. Potential duplicates are checked against existing email addresses and phone numbers.</p><div className="table-wrap"><table><thead><tr><th>Name</th><th>Email</th><th>Type</th><th>Part / instrument</th><th>Church</th></tr></thead><tbody>{csvRows.slice(0,8).map((r,i)=><tr key={i}><td>{r.full_name}</td><td>{r.email}</td><td>{r.singer_or_musician}</td><td>{r.part_or_instrument}</td><td>{r.church_name}</td></tr>)}</tbody></table></div>{csvRows.length>8&&<p className="muted">Showing the first 8 rows for review.</p>}<div className="form-actions"><button className="primary-button" disabled={busy||!csvRows.length} onClick={importCsv}>{busy?'Importing…':`Import ${csvRows.length} reviewed rows`}</button></div></>}</section>}
+    {attendanceMember&&<section className="panel-card" aria-label="Individual rehearsal attendance"><div className="panel-header"><div><p className="eyebrow">Individual rehearsal record</p><h2>{attendanceMember.full_name}</h2><p className="muted">Present and Late both count as attended. Permission is excused, not attended.</p></div><button className="secondary-button" onClick={()=>setAttendanceMember(null)}>Close</button></div>
+      {attendanceLoading?<p>Loading rehearsal history…</p>:attendanceError?<p className="notice" role="alert">{attendanceError}</p>:<>
+      <div className="stats-grid" style={{gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))"}}>
+        <article className="stat-card"><span>Rehearsals attended</span><strong>{attendanceHistory.filter(x=>x.status==='Present'||x.status==='Late').length} / {attendanceHistory.length}</strong><small>Present + Late</small></article>
+        <article className="stat-card"><span>Present</span><strong>{attendanceHistory.filter(x=>x.status==='Present').length}</strong></article>
+        <article className="stat-card"><span>Late</span><strong>{attendanceHistory.filter(x=>x.status==='Late').length}</strong></article>
+        <article className="stat-card"><span>Absent</span><strong>{attendanceHistory.filter(x=>x.status==='Absent').length}</strong></article>
+        <article className="stat-card"><span>Permission</span><strong>{attendanceHistory.filter(x=>x.status==='Permission').length}</strong></article>
+      </div>
+      <div className="table-wrap"><table><thead><tr><th>Date</th><th>Rehearsal</th><th>Status</th><th>Check-in time</th></tr></thead><tbody>{attendanceHistory.map(x=><tr key={x.id}><td>{x.event_date}</td><td>{x.title}</td><td>{x.status}</td><td>{x.check_in_time?new Date(x.check_in_time).toLocaleString('en-GB',{timeZone:'Europe/London',hour:'2-digit',minute:'2-digit'}):'—'}</td></tr>)}</tbody></table>{!attendanceHistory.length&&<p className="muted">No past rehearsals found.</p>}</div>
+      </>}
+    </section>}
     <section className="panel-card"><div className="toolbar-row"><div><h2>Registered contacts <span className="count-label">{filtered.length}</span></h2><p className="muted">Search the directory to find a member.</p></div><input className="search-input" aria-label="Search contacts" placeholder="Search name, email, phone or church" value={search} onChange={e=>setSearch(e.target.value)}/></div>
-      <div className="table-wrap"><table><thead><tr><th>Name</th><th>Registered</th><th>Email / phone</th><th>Type</th><th>Voice part / instrument</th><th>Church</th><th>Participation</th><th></th></tr></thead><tbody>{filtered.map(c=><tr key={c.id}><td><strong>{c.full_name}</strong></td><td>{c.registered_at||'—'}</td><td><span>{c.email||'—'}</span><small className="table-subtext">{c.phone_number||'—'}</small></td><td>{c.singer_or_musician}</td><td>{c.part_or_instrument||'—'}</td><td>{c.church_name||'—'}</td><td>{c.participation_status==='withdrawn'?'Withdrawn':c.participation_status==='pending'?'Pending Confirmation':'Active'}</td><td><button className="table-action" onClick={()=>startEdit(c)}>Edit</button>{superAdmin&&<button className="table-action" disabled={busy} onClick={()=>setDeleteTarget(c)}>Delete</button>}</td></tr>)}</tbody></table>{!filtered.length&&<div className="empty-state">{search?'No contacts match your search.':'No contacts have been added yet. Add a contact or import a CSV roster.'}</div>}</div>
+      <div className="table-wrap"><table><thead><tr><th>Name</th><th>Registered</th><th>Email / phone</th><th>Type</th><th>Voice part / instrument</th><th>Church</th><th>Participation</th><th></th></tr></thead><tbody>{filtered.map(c=><tr key={c.id}><td><strong>{c.full_name}</strong></td><td>{c.registered_at||'—'}</td><td><span>{c.email||'—'}</span><small className="table-subtext">{c.phone_number||'—'}</small></td><td>{c.singer_or_musician}</td><td>{c.part_or_instrument||'—'}</td><td>{c.church_name||'—'}</td><td>{c.participation_status==='withdrawn'?'Withdrawn':c.participation_status==='pending'?'Pending Confirmation':'Active'}</td><td><button className="table-action" onClick={()=>void viewAttendance(c)}>Attendance</button><button className="table-action" onClick={()=>startEdit(c)}>Edit</button>{superAdmin&&<button className="table-action" disabled={busy} onClick={()=>setDeleteTarget(c)}>Delete</button>}</td></tr>)}</tbody></table>{!filtered.length&&<div className="empty-state">{search?'No contacts match your search.':'No contacts have been added yet. Add a contact or import a CSV roster.'}</div>}</div>
     </section>
   </div>;
 }
