@@ -6,7 +6,7 @@ import { createSupabaseClient } from '@/lib/supabase';
 type ReportRow={id:string;event_id:string;contact_id:string;status:'Present'|'Late'|'Absent'|'Permission';check_in_time:string|null;event?:{title:string;event_date:string;type:string}|null;contact?:{full_name:string;email:string|null;phone_number:string|null;church_name:string|null;singer_or_musician:string;part_or_instrument:string|null}|null};
 export default function ReportsPage(){
  const today=new Date().toLocaleDateString('en-CA');
- const [start,setStart]=useState(today.slice(0,8)+'01');const [end,setEnd]=useState(today);
+ const [start,setStart]=useState('2026-01-01');const [end,setEnd]=useState(today);
  const [rows,setRows]=useState<ReportRow[]>([]);
  const [rehearsals,setRehearsals]=useState<{id:string;title:string;event_date:string}[]>([]);
  const [memberType,setMemberType]=useState<'All'|'Singer'|'Musician'>('All');
