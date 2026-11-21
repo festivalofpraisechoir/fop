@@ -15,16 +15,30 @@ export default function ReportsPage(){
   const s=createSupabaseClient();if(!s)return setMessage('Supabase is not configured.');
   if(start>end)return setMessage('Start date must be on or before end date.');
   setLoading(true);setMessage('');
-  const [{data:events,error:eventError},{data:records,error:recordError}]=await Promise.all([
-    s.from('attendance_events').select('id,title,event_date,type').gte('event_date',start).lte('event_date',end).order('event_date',{ascending:false}),
-    s.from('attendance_records').select('id,event_id,contact_id,status,check_in_time,event:attendance_events(title,event_date,type),contact:contacts(full_name,email,phone_number,church_name,singer_or_musician,part_or_instrument)').order('check_in_time',{ascending:false}).limit(10000)
-  ]);
-  setLoading(false);
-  if(eventError||recordError){setMessage('Could not load report data: '+(eventError?.message||recordError?.message));return;}
-  const selected=(events||[]).filter(e=>e.type==='Rehearsal');
-  setRehearsals(selected.map(e=>({id:e.id,title:e.title,event_date:e.event_date})));
-  const ids=new Set((events||[]).map(e=>e.id));
-  setRows(((records||[]) as unknown as ReportRow[]).filter(r=>ids.has(r.event_id)));
+  try {
+   const {data:events,error:eventError}=await s.from('attendance_events').select('id,title,event_date,type').gte('event_date',start).lte('event_date',end).order('event_date',{ascending:false});
+   if(eventError)throw eventError;
+   const selected=(events||[]).filter(e=>e.type==='Rehearsal');
+   const ids=selected.map(e=>e.id);
+   const allRecords:ReportRow[]=[];
+   // Supabase/PostgREST limits individual responses to 1,000 rows.
+   // Fetch every page, scoped to the selected rehearsals, before calculating totals.
+   if(ids.length){
+    const pageSize=500;
+    for(let offset=0;;offset+=pageSize){
+     const {data:page,error:recordError}=await s.from('attendance_records')
+      .select('id,event_id,contact_id,status,check_in_time,event:attendance_events(title,event_date,type),contact:contacts(full_name,email,phone_number,church_name,singer_or_musician,part_or_instrument)')
+      .in('event_id',ids).order('id',{ascending:true}).range(offset,offset+pageSize-1);
+     if(recordError)throw recordError;
+     allRecords.push(...((page||[]) as unknown as ReportRow[]));
+     if(!page||page.length<pageSize)break;
+    }
+   }
+   setRehearsals(selected.map(e=>({id:e.id,title:e.title,event_date:e.event_date})));
+   setRows(allRecords);
+  }catch(error){
+   setMessage('Could not load report data: '+(error instanceof Error?error.message:String(error)));
+  }finally{setLoading(false);}
  }
  useEffect(()=>{load();},[]);
  const subgroups=useMemo(()=>Array.from(new Set(rows.filter(r=>memberType==='All'||r.contact?.singer_or_musician===memberType).map(r=>r.contact?.part_or_instrument?.trim()).filter((x):x is string=>!!x))).sort(),[rows,memberType]);
