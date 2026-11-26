@@ -52,31 +52,19 @@ export default function ContactsPage() {
   async function load() {
     const supabase=createSupabaseClient();
     if(!supabase){setMessage('Supabase is not configured.');return;}
-    const {data,error}=await supabase.from('contacts').select('*').order('full_name');
-    if(error){setMessage('Could not load contacts. Apply the Supabase migration and confirm access permissions.');return;}
-    setContacts((data||[]) as ContactRecord[]);
     setAttendanceCounts(null);setCountsError(false);
-    try {
-      const today=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/London',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
-      const {data:events,error:eventError}=await supabase.from('attendance_events').select('id').eq('type','Rehearsal').lte('event_date',today);
-      if(eventError)throw eventError;
-      const ids=(events||[]).map(e=>e.id);
-      const attended=new Map<string,Set<string>>();
-      if(ids.length){
-        const pageSize=500;
-        for(let offset=0;;offset+=pageSize){
-          const {data:page,error:pageError}=await supabase.from('attendance_records').select('id,contact_id,event_id').in('event_id',ids).in('status',['Present','Late']).order('id',{ascending:true}).range(offset,offset+pageSize-1);
-          if(pageError)throw pageError;
-          for(const row of page||[]){
-            const sessions=attended.get(row.contact_id)||new Set<string>();
-            sessions.add(row.event_id);attended.set(row.contact_id,sessions);
-          }
-          if(!page||page.length<pageSize)break;
-        }
-      }
-      setAttendanceCounts(Object.fromEntries(Array.from(attended,([id,sessions])=>[id,sessions.size])));
-    }catch{setCountsError(true);}
-
+    const contactsRequest=supabase.from('contacts').select('*').order('full_name');
+    const countsRequest=supabase.rpc('fop_rehearsal_attendance_counts');
+    await Promise.all([
+      Promise.resolve(contactsRequest).then(({data,error})=>{
+        if(error){setMessage('Could not load contacts. Check access permissions.');return;}
+        setContacts((data||[]) as ContactRecord[]);
+      }),
+      Promise.resolve(countsRequest).then(({data,error})=>{
+        if(error){setCountsError(true);return;}
+        setAttendanceCounts(Object.fromEntries(((data||[]) as {contact_id:string;attended:number|string}[]).map(row=>[row.contact_id,Number(row.attended)])));
+      }).catch(()=>setCountsError(true))
+    ]);
   }
   useEffect(()=>{load();},[]);
   const filtered=useMemo(()=>contacts.filter(c=>(participationFilter==='All'||c.participation_status===participationFilter)&&(badgeFilter==='All'||(badgeFilter==='Collected'?c.badge_collected:!c.badge_collected))&&(letterFilter==='All'||(letterFilter==='Submitted'?c.church_letter_submitted:!c.church_letter_submitted))&&(memberType==='All'||c.singer_or_musician===memberType)&&[c.full_name,c.email,c.phone_number,c.church_name,c.part_or_instrument,c.singer_or_musician].some(v=>v?.toLowerCase().includes(search.toLowerCase()))),[contacts,search,memberType,letterFilter,badgeFilter,participationFilter]);
