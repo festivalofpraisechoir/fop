@@ -8,6 +8,8 @@ const blank: ContactDraft = { full_name:'', email:'', phone_number:'', singer_or
 
 export default function ContactsPage() {
   const [contacts,setContacts] = useState<ContactRecord[]>([]);
+  const [attendanceCounts,setAttendanceCounts]=useState<Record<string,number>|null>(null);
+  const [countsError,setCountsError]=useState(false);
   const [search,setSearch] = useState('');
   const [participationFilter,setParticipationFilter]=useState<'All'|'active'|'withdrawn'|'pending'>('All');
   const [letterFilter,setLetterFilter] = useState<'All'|'Submitted'|'Outstanding'>('All');
@@ -53,6 +55,28 @@ export default function ContactsPage() {
     const {data,error}=await supabase.from('contacts').select('*').order('full_name');
     if(error){setMessage('Could not load contacts. Apply the Supabase migration and confirm access permissions.');return;}
     setContacts((data||[]) as ContactRecord[]);
+    setAttendanceCounts(null);setCountsError(false);
+    try {
+      const today=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/London',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+      const {data:events,error:eventError}=await supabase.from('attendance_events').select('id').eq('type','Rehearsal').lte('event_date',today);
+      if(eventError)throw eventError;
+      const ids=(events||[]).map(e=>e.id);
+      const attended=new Map<string,Set<string>>();
+      if(ids.length){
+        const pageSize=500;
+        for(let offset=0;;offset+=pageSize){
+          const {data:page,error:pageError}=await supabase.from('attendance_records').select('id,contact_id,event_id').in('event_id',ids).in('status',['Present','Late']).order('id',{ascending:true}).range(offset,offset+pageSize-1);
+          if(pageError)throw pageError;
+          for(const row of page||[]){
+            const sessions=attended.get(row.contact_id)||new Set<string>();
+            sessions.add(row.event_id);attended.set(row.contact_id,sessions);
+          }
+          if(!page||page.length<pageSize)break;
+        }
+      }
+      setAttendanceCounts(Object.fromEntries(Array.from(attended,([id,sessions])=>[id,sessions.size])));
+    }catch{setCountsError(true);}
+
   }
   useEffect(()=>{load();},[]);
   const filtered=useMemo(()=>contacts.filter(c=>(participationFilter==='All'||c.participation_status===participationFilter)&&(badgeFilter==='All'||(badgeFilter==='Collected'?c.badge_collected:!c.badge_collected))&&(letterFilter==='All'||(letterFilter==='Submitted'?c.church_letter_submitted:!c.church_letter_submitted))&&(memberType==='All'||c.singer_or_musician===memberType)&&[c.full_name,c.email,c.phone_number,c.church_name,c.part_or_instrument,c.singer_or_musician].some(v=>v?.toLowerCase().includes(search.toLowerCase()))),[contacts,search,memberType,letterFilter,badgeFilter,participationFilter]);
@@ -206,7 +230,7 @@ export default function ContactsPage() {
       </>}
     </section>}
     <section className="panel-card"><div className="toolbar-row"><div><h2>Registered contacts <span className="count-label">{filtered.length}</span></h2><p className="muted">Search the directory to find a member.</p></div><input className="search-input" aria-label="Search contacts" placeholder="Search name, email, phone or church" value={search} onChange={e=>setSearch(e.target.value)}/></div>
-      <div className="table-wrap"><table><thead><tr><th>Name</th><th>Registered</th><th>Email / phone</th><th>Type</th><th>Voice part / instrument</th><th>Church</th><th>Participation</th><th></th></tr></thead><tbody>{filtered.map(c=><tr key={c.id}><td><strong>{c.full_name}</strong></td><td>{c.registered_at||'—'}</td><td><span>{c.email||'—'}</span><small className="table-subtext">{c.phone_number||'—'}</small></td><td>{c.singer_or_musician}</td><td>{c.part_or_instrument||'—'}</td><td>{c.church_name||'—'}</td><td>{c.participation_status==='withdrawn'?'Withdrawn':c.participation_status==='pending'?'Pending Confirmation':'Active'}</td><td><button className="table-action" onClick={()=>void viewAttendance(c)}>Attendance</button><button className="table-action" onClick={()=>startEdit(c)}>Edit</button>{superAdmin&&<button className="table-action" disabled={busy} onClick={()=>setDeleteTarget(c)}>Delete</button>}</td></tr>)}</tbody></table>{!filtered.length&&<div className="empty-state">{search?'No contacts match your search.':'No contacts have been added yet. Add a contact or import a CSV roster.'}</div>}</div>
+      <div className="table-wrap"><table><thead><tr><th>Name</th><th>Rehearsals attended</th><th>Registered</th><th>Email / phone</th><th>Type</th><th>Voice part / instrument</th><th>Church</th><th>Participation</th><th></th></tr></thead><tbody>{filtered.map(c=><tr key={c.id}><td><strong>{c.full_name}</strong></td><td><strong title="Present + Late, excluding Permission and Absent">{countsError?'Unavailable':attendanceCounts===null?'Loading…':attendanceCounts[c.id]??0}</strong></td><td>{c.registered_at||'—'}</td><td><span>{c.email||'—'}</span><small className="table-subtext">{c.phone_number||'—'}</small></td><td>{c.singer_or_musician}</td><td>{c.part_or_instrument||'—'}</td><td>{c.church_name||'—'}</td><td>{c.participation_status==='withdrawn'?'Withdrawn':c.participation_status==='pending'?'Pending Confirmation':'Active'}</td><td><button className="table-action" onClick={()=>void viewAttendance(c)}>Attendance</button><button className="table-action" onClick={()=>startEdit(c)}>Edit</button>{superAdmin&&<button className="table-action" disabled={busy} onClick={()=>setDeleteTarget(c)}>Delete</button>}</td></tr>)}</tbody></table>{!filtered.length&&<div className="empty-state">{search?'No contacts match your search.':'No contacts have been added yet. Add a contact or import a CSV roster.'}</div>}</div>
     </section>
   </div>;
 }
